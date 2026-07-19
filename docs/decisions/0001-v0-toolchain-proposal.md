@@ -1,14 +1,15 @@
 # Förslag 0001: verktygskedja för Forge v0
 
-- Status: **Föreslagen — kräver ägarbeslut**
+- Status: **Ersatt av förslag 0002 — ingen implementation**
 - Datum: 2026-07-19
 - Omfattning: lokalt Forge v0; inga installationer eller externa ändringar
 
-## Beslut som behövs
+## Historik
 
-Godkänn eller avvisa den rekommenderade verktygskedjan innan en riktig
-GitHub-, build- eller runtime-adapter implementeras eller något installeras på
-Lenovo.
+Detta förslag rekommenderade en tunn Forge med en egen Podman/Quadlet-executor.
+Ägaren har förtydligat att Forge inte ska bygga en egen Vercel-lik PaaS. Se
+`docs/decisions/0002-deploy-engine-proposal.md` för det aktuella förslaget att
+använda en etablerad deploymotor.
 
 ## Krav som styr urvalet
 

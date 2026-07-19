@@ -23,6 +23,7 @@ secrets eller containrar.
 - [Arbetssätt för agenter](AGENTS.md)
 - [ADR-0001: privat deploy-control-plane](docs/adr/0001-private-deploy-control-plane.md)
 - [Förslag 0001: verktygskedja för v0](docs/decisions/0001-v0-toolchain-proposal.md)
+- [Förslag 0002: Coolify som Forge-motor](docs/decisions/0002-deploy-engine-proposal.md)
 - [Adesco: föreslaget pilotkontrakt](docs/pilots/adesco.md)
 
 ## Forge v0 i korthet

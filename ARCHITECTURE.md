@@ -19,22 +19,21 @@ Linux/hypervisor
 
 Forge styr inte hypervisorn, virtuella maskiner eller hostens nätverk.
 
-Forge är ett tunt control-plane. Det återanvänder beprövade komponenter för
-containerbuild, artifact-lagring, containerdrift och loggning. Forge äger
-projektregistret, release-state-machine, capabilitykontrollerna och auditdata;
-det implementerar inte en egen container-runtime, scheduler, service mesh eller
-Kubernetes-distribution.
+Forge är ett tunt policy- och integrationslager framför en etablerad
+deploymotor. Motorn äger containerbuild, artifact, runtime, health check och
+rollback; Forge äger registreringspolicy, Lyra-capabilities och content-free
+audit. Forge implementerar inte en egen container-runtime, scheduler, PaaS,
+service mesh eller Kubernetes-distribution.
 
 ## Lättvikt och utbyggnad
 
-V0 optimeras för en mini-PC, inte för ett kluster:
+V0 optimeras för en intern mini-PC-labbmiljö, inte för ett kluster:
 
 - ett litet control-plane, en lokal statefil och en begränsad buildkö
 - ingen alltid körande databas, meddelandebuss, service mesh eller scheduler
 - en build i taget som utgångspunkt; samtidighet höjs endast efter mätning och
-  ägargodkännande
-- uttryckliga CPU-, minnes- och tidsgränser i varje registrerad build-/
-  runtimeprofil
+  ägargodkännande i den valda deploymotorn
+- enkla CPU-, minnes- och tidsgränser när en app faktiskt behöver dem
 
 V0 börjar med en control-plane-instans och en lokal executor. Den utformas dock
 så att en senare, ägargodkänd mini-PC kan läggas till som en separat
@@ -139,10 +138,10 @@ GitHub-pollaren får endast läsa HEAD-commit för ett registrerat repo och dess
 registrerade branch. Den returnerar content-free pollstatus och verifierar på
 nytt att en begärd SHA fortfarande är branchens HEAD före deploy.
 
-Executor-adaptern tar endast emot typade operationer för `projectId`, commit-SHA
-eller release-id. Den får aldrig ta emot fria shellkommandon, hostvägar,
-portnummer, images, miljövärden eller Quadlet-/Compose-text. Den framtida
-Podman/Quadlet-executorn är en separat implementation av just detta kontrakt.
+Deploymotor-adaptern tar endast emot typade operationer för `projectId`,
+commit-SHA eller release-id. Den får aldrig ta emot fria shellkommandon,
+hostvägar, portnummer, images, miljövärden eller Compose-text. Den valda
+motorns bredare administrationsyta exponeras aldrig för Lyra.
 
 ## Icke-mål för v0
 
