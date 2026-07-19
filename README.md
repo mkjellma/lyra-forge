@@ -74,5 +74,6 @@ Kör den lokala gate:n med:
 npm run check
 ```
 
-`npm start` kräver en lokal `FORGE_API_TOKEN`-miljövariabel och lyssnar endast
-på `127.0.0.1`. Lägg aldrig tokenvärdet i Git.
+`npm start` kräver en lokal `FORGE_API_TOKEN`-miljövariabel och lyssnar som
+standard på `127.0.0.1:3000`. Containern använder samma `/healthz`-endpoint
+internt; den skapar ingen publik exponering. Lägg aldrig tokenvärdet i Git.
