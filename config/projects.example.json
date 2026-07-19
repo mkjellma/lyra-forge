@@ -1,0 +1,18 @@
+{
+  "projects": [
+    {
+      "projectId": "example-service",
+      "repository": "https://github.com/example/example-service.git",
+      "allowedBranch": "main",
+      "buildProfile": "containerfile",
+      "runtimeProfile": "private-http",
+      "deployPolicy": "manual",
+      "healthCheck": {
+        "path": "/health",
+        "timeoutMs": 3000
+      },
+      "pollIntervalSeconds": 300
+    }
+  ]
+}
+

@@ -1,0 +1,14 @@
+{
+  "name": "lyra-forge",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Private, capability-limited deploy control plane for Lyra.",
+  "scripts": {
+    "check": "node --test test/*.test.js && node --check src/*.js",
+    "start": "node src/main.js"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
