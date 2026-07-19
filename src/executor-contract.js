@@ -55,7 +55,8 @@ export class TypedExecutorAdapter {
     if (!exactKeys(result, ["restarted"]) || result.restarted !== true) throw protocolError();
   }
 
-  async getRuntimeStatus(projectId) {
+  async getRuntimeStatus(project) {
+    const projectId = typeof project === "string" ? project : project?.projectId;
     const result = await this.request("getRuntimeStatus", { projectId: requireProjectId(projectId) });
     if (!exactKeys(result, ["activeReleaseId", "state"]) || typeof result.state !== "string" || (result.activeReleaseId !== null && !RELEASE_ID.test(result.activeReleaseId))) {
       throw protocolError();

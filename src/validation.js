@@ -3,6 +3,7 @@ import { badRequest } from "./errors.js";
 const SHA_PATTERN = /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/i;
 const PROJECT_ID_PATTERN = /^[a-z][a-z0-9-]{1,62}$/;
 const BRANCH_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._/-]{0,254}$/;
+const COOLIFY_APPLICATION_ID_PATTERN = /^[A-Za-z0-9-]{6,128}$/;
 const DEPLOY_POLICIES = new Set(["manual", "on-new-commit"]);
 
 export function assertCommitSha(value) {
@@ -67,6 +68,9 @@ export function validateProject(project) {
   if (!Number.isInteger(project.pollIntervalSeconds) || project.pollIntervalSeconds < 60) {
     throw badRequest("INVALID_POLL_INTERVAL");
   }
+  if (project.coolifyApplicationUuid !== undefined && (typeof project.coolifyApplicationUuid !== "string" || !COOLIFY_APPLICATION_ID_PATTERN.test(project.coolifyApplicationUuid))) {
+    throw badRequest("INVALID_COOLIFY_APPLICATION");
+  }
 
   return Object.freeze({
     projectId: project.projectId,
@@ -76,6 +80,7 @@ export function validateProject(project) {
     runtimeProfile: project.runtimeProfile,
     deployPolicy: project.deployPolicy,
     healthCheck: Object.freeze({ ...project.healthCheck }),
-    pollIntervalSeconds: project.pollIntervalSeconds
+    pollIntervalSeconds: project.pollIntervalSeconds,
+    coolifyApplicationUuid: project.coolifyApplicationUuid ?? null
   });
 }

@@ -31,12 +31,16 @@ export class ForgeService {
     });
   }
 
-  getProjectStatus(projectId) {
+  async getProjectStatus(projectId) {
     const project = this.registry.get(projectId);
+    const runtime = typeof this.runtimeExecutor.getRuntimeStatus === "function"
+      ? await this.runtimeExecutor.getRuntimeStatus(project)
+      : null;
     return {
       projectId: project.projectId,
       deployPaused: this.registry.isPaused(projectId),
       activeRelease: this.releases.getActive(projectId),
+      runtime,
       poll: this.gitProvider.getPollStatus?.(projectId) ?? { state: "unavailable", checkedAt: null, commitSha: null, errorCategory: null, etag: null }
     };
   }

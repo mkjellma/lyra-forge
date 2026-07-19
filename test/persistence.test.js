@@ -31,7 +31,7 @@ test("persistent local state restores the active release, pause state, and conte
       runtimeExecutor: new FixtureRuntimeExecutor(),
       stateStore
     });
-    const status = restoredForge.getProjectStatus("adesco");
+    const status = await restoredForge.getProjectStatus("adesco");
     assert.equal(status.deployPaused, true);
     assert.equal(status.activeRelease.commitSha, SHA_A);
     assert.equal(restoredForge.listDeployHistory("adesco").length, 1);
@@ -39,4 +39,3 @@ test("persistent local state restores the active release, pause state, and conte
     await rm(directory, { recursive: true, force: true });
   }
 });
-

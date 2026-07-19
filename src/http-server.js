@@ -63,7 +63,7 @@ export function createForgeRequestHandler({ forge, apiToken }) {
       const [, projectId, operation] = matches;
       let result;
       if (request.method === "GET" && !operation) {
-        result = forge.getProjectStatus(projectId);
+        result = await forge.getProjectStatus(projectId);
       } else if (request.method === "GET" && operation === "releases") {
         result = forge.listDeployHistory(projectId);
       } else if (request.method === "POST" && operation === "deploy") {

@@ -9,7 +9,7 @@ test("deploy promotes a healthy exact commit and retains the prior release", asy
 
   assert.equal(first.outcome, "succeeded");
   assert.equal(second.release.state, "active");
-  assert.equal(forge.getProjectStatus("adesco").activeRelease.commitSha, SHA_B);
+  assert.equal((await forge.getProjectStatus("adesco")).activeRelease.commitSha, SHA_B);
   const history = forge.listDeployHistory("adesco");
   assert.equal(history[0].state, "previous");
   assert.equal(history[1].state, "active");
@@ -25,7 +25,7 @@ test("failed health check keeps the active release unchanged", async () => {
 
   assert.equal(failed.outcome, "failed");
   assert.equal(failed.release.state, "failed");
-  assert.equal(forge.getProjectStatus("adesco").activeRelease.commitSha, SHA_A);
+  assert.equal((await forge.getProjectStatus("adesco")).activeRelease.commitSha, SHA_A);
 });
 
 test("a failed build creates no release artifact and records only a normalized category", async () => {

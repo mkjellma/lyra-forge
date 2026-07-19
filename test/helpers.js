@@ -15,6 +15,7 @@ export function exampleProject(overrides = {}) {
     deployPolicy: "manual",
     healthCheck: { path: "/health", timeoutMs: 1000 },
     pollIntervalSeconds: 300,
+    coolifyApplicationUuid: "adesco-app-1234",
     ...overrides
   };
 }

@@ -56,7 +56,7 @@ test("GitHub poll failure is content-free and appears in project poll status and
     errorCategory: "GITHUB_AUTH_FAILED",
     etag: null
   });
-  assert.equal(forge.getProjectStatus("adesco").poll.errorCategory, "GITHUB_AUTH_FAILED");
+  assert.equal((await forge.getProjectStatus("adesco")).poll.errorCategory, "GITHUB_AUTH_FAILED");
   assert.equal(audit.listByProject("adesco")[0].action, "poll");
   assert.equal(audit.listByProject("adesco")[0].errorCategory, "GITHUB_AUTH_FAILED");
 });
