@@ -26,7 +26,8 @@ export class ForgeService {
       version: 1,
       pausedProjects: this.registry.exportPauseState(),
       releases: this.releases.exportState(),
-      audit: this.audit.exportState()
+      audit: this.audit.exportState(),
+      gitProviderState: this.gitProvider.exportState?.() ?? null
     });
   }
 
@@ -35,13 +36,32 @@ export class ForgeService {
     return {
       projectId: project.projectId,
       deployPaused: this.registry.isPaused(projectId),
-      activeRelease: this.releases.getActive(projectId)
+      activeRelease: this.releases.getActive(projectId),
+      poll: this.gitProvider.getPollStatus?.(projectId) ?? { state: "unavailable", checkedAt: null, commitSha: null, errorCategory: null, etag: null }
     };
   }
 
   listDeployHistory(projectId) {
     this.registry.get(projectId);
     return this.releases.listByProject(projectId);
+  }
+
+  async pollProject(projectId, actorType = "system") {
+    const project = this.registry.get(projectId);
+    if (typeof this.gitProvider.poll !== "function") {
+      throw conflict("GIT_PROVIDER_UNAVAILABLE");
+    }
+    const status = await this.gitProvider.poll(project);
+    this.audit.append({
+      action: "poll",
+      projectId,
+      actorType,
+      outcome: status.state === "failed" ? "failed" : "succeeded",
+      commitSha: status.commitSha,
+      errorCategory: status.errorCategory
+    });
+    await this.persist();
+    return status;
   }
 
   requestDeploy(projectId, commitSha, actorType = "lyra") {

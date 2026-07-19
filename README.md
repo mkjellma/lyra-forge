@@ -61,6 +61,12 @@ lokala processen. Testerna använder explicita fake-adaptrar för att verifiera
 deploy, health-check-fel, paus och rollback utan att kontakta GitHub eller
 skapa containrar.
 
+Den adapterklara grunden innehåller också en GitHub REST-pollare som kräver en
+injekterad HTTP-klient och en executor-adapter som kräver en injekterad
+transport. De kan därför testas med lokala fixtures men öppnar aldrig själva
+nätverk, socket eller processer. Pollstatus är content-free och sparas i lokal
+Forge-state när en riktig pollningsadapter ansluts.
+
 Kör den lokala gate:n med:
 
 ```sh

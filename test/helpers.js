@@ -19,7 +19,7 @@ export function exampleProject(overrides = {}) {
   };
 }
 
-export function makeForge({ build, health, activate, restart, stateStore = null } = {}) {
+export function makeForge({ build, health, activate, restart, stateStore = null, gitProvider = null, buildExecutor = null, runtimeExecutor = null } = {}) {
   const now = (() => {
     let counter = 0;
     return () => `2026-07-19T00:00:0${counter++}.000Z`;
@@ -31,9 +31,9 @@ export function makeForge({ build, health, activate, restart, stateStore = null 
     registry,
     releases,
     audit,
-    gitProvider: new FixtureGitProvider({ adesco: [SHA_A, SHA_B] }),
-    buildExecutor: new FixtureBuildExecutor({ build, health }),
-    runtimeExecutor: new FixtureRuntimeExecutor({ activate, restart }),
+    gitProvider: gitProvider ?? new FixtureGitProvider({ adesco: [SHA_A, SHA_B] }),
+    buildExecutor: buildExecutor ?? new FixtureBuildExecutor({ build, health }),
+    runtimeExecutor: runtimeExecutor ?? new FixtureRuntimeExecutor({ activate, restart }),
     stateStore
   });
   return { forge, registry, releases, audit };

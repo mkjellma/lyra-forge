@@ -139,7 +139,7 @@ export class ReleaseStore {
   }
 }
 
-const AUDIT_ACTIONS = new Set(["deploy", "restart", "pause", "rollback"]);
+const AUDIT_ACTIONS = new Set(["deploy", "restart", "pause", "rollback", "poll"]);
 const AUDIT_OUTCOMES = new Set(["accepted", "succeeded", "failed", "rejected"]);
 const ACTOR_TYPES = new Set(["lyra", "system"]);
 const ERROR_CATEGORY_PATTERN = /^[A-Z0-9_]{1,64}$/;

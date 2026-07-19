@@ -133,6 +133,17 @@ Varje muterande operation validerar projektets register, tillåtna tillstånd oc
 identitet. Ytan ger inte filsystem, shell, Docker-socket, godtyckliga images
 eller nya repositories.
 
+## Adaptergränser
+
+GitHub-pollaren får endast läsa HEAD-commit för ett registrerat repo och dess
+registrerade branch. Den returnerar content-free pollstatus och verifierar på
+nytt att en begärd SHA fortfarande är branchens HEAD före deploy.
+
+Executor-adaptern tar endast emot typade operationer för `projectId`, commit-SHA
+eller release-id. Den får aldrig ta emot fria shellkommandon, hostvägar,
+portnummer, images, miljövärden eller Quadlet-/Compose-text. Den framtida
+Podman/Quadlet-executorn är en separat implementation av just detta kontrakt.
+
 ## Icke-mål för v0
 
 - publik ingress, port-forward eller inkommande GitHub-webhooks
