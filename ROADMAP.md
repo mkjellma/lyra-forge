@@ -45,3 +45,9 @@
 
 Ingen punkt ovan ger standing authorization för Lenovo-, GitHub-, nätverks-,
 secret-, VM- eller deploymentåtgärder.
+
+## Pilot: Adesco
+
+Adesco är valt som första kandidatsystem. Dess Forge-kontrakt är dokumenterat
+som ett förslag i `docs/pilots/adesco.md`. Första deploy kräver fortfarande en
+explicit health route, deklarerad Node-runtime och ägarbeslut om deploypolicy.
