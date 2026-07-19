@@ -34,7 +34,7 @@ test("persistent local state restores the active release, pause state, and conte
     const status = await restoredForge.getProjectStatus("adesco");
     assert.equal(status.deployPaused, true);
     assert.equal(status.activeRelease.commitSha, SHA_A);
-    assert.equal(restoredForge.listDeployHistory("adesco").length, 1);
+    assert.equal((await restoredForge.listDeployHistory("adesco")).length, 1);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

@@ -24,6 +24,7 @@ const forge = new ForgeService({
   gitProvider: new RejectingGitProvider(),
   buildExecutor: new RejectingBuildExecutor(),
   runtimeExecutor,
+  deploymentAdapter: runtime.coolify ? runtimeExecutor : null,
   stateStore
 });
 

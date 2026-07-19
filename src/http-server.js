@@ -65,7 +65,7 @@ export function createForgeRequestHandler({ forge, apiToken }) {
       if (request.method === "GET" && !operation) {
         result = await forge.getProjectStatus(projectId);
       } else if (request.method === "GET" && operation === "releases") {
-        result = forge.listDeployHistory(projectId);
+        result = await forge.listDeployHistory(projectId);
       } else if (request.method === "POST" && operation === "deploy") {
         const body = await readJson(request);
         result = await forge.requestDeploy(projectId, body.commitSha);

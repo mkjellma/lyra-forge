@@ -51,12 +51,16 @@ export class ReleaseStore {
     if (state) this.restore(state);
   }
 
-  create({ projectId, commitSha, artifactId }) {
+  create({ projectId, commitSha, artifactId, operation = "deploy" }) {
+    if (operation !== "deploy" && operation !== "rollback") {
+      throw badRequest("INVALID_RELEASE_OPERATION");
+    }
     const release = Object.freeze({
       releaseId: `release-${this.nextId++}`,
       projectId,
       commitSha,
       artifactId,
+      operation,
       createdAt: this.now()
     });
     this.records.set(release.releaseId, release);
@@ -101,6 +105,10 @@ export class ReleaseStore {
     return releaseId ? this.getSummary(releaseId) : null;
   }
 
+  getChecking(projectId) {
+    return this.listByProject(projectId).find((release) => release.state === "checking") ?? null;
+  }
+
   setActive(projectId, releaseId) {
     this.getRecord(releaseId);
     this.activeReleaseIds.set(projectId, releaseId);
@@ -120,10 +128,10 @@ export class ReleaseStore {
       throw badRequest("INVALID_PERSISTED_STATE");
     }
     for (const record of state.records) {
-      if (!record || typeof record.releaseId !== "string" || typeof record.projectId !== "string" || typeof record.commitSha !== "string" || typeof record.artifactId !== "string" || typeof record.createdAt !== "string") {
+      if (!record || typeof record.releaseId !== "string" || typeof record.projectId !== "string" || typeof record.commitSha !== "string" || typeof record.artifactId !== "string" || typeof record.createdAt !== "string" || (record.operation !== undefined && record.operation !== "deploy" && record.operation !== "rollback")) {
         throw badRequest("INVALID_PERSISTED_STATE");
       }
-      this.records.set(record.releaseId, Object.freeze({ ...record }));
+      this.records.set(record.releaseId, Object.freeze({ ...record, operation: record.operation ?? "deploy" }));
     }
     for (const [releaseId, events] of state.events) {
       if (!this.records.has(releaseId) || !Array.isArray(events) || events.length === 0) {

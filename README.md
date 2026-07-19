@@ -57,10 +57,11 @@ content-free auditlogg, atomiskt sparad lokal state med filrättighet `0600` och
 ett loopback-bundet, bearer-skyddat API. Buildflödet är serialiserat till en
 build i taget för att skydda den första mini-PC:n.
 
-GitHub-, build- och runtime-adaptrarna är medvetet avvisande i den körbara
-lokala processen. Testerna använder explicita fake-adaptrar för att verifiera
-deploy, health-check-fel, paus och rollback utan att kontakta GitHub eller
-skapa containrar.
+GitHub-adaptern är medvetet avvisande i den körbara processen tills en separat,
+registrerad GitHub-integration har godkänts. Build- och runtimeadaptrarna är
+också avvisande utan en komplett Coolify-runtimekonfiguration. Tester använder
+explicita fake-adaptrar för att verifiera deploy, health-check-fel, paus och
+rollback utan att kontakta GitHub eller skapa containrar.
 
 Den adapterklara grunden innehåller också en GitHub REST-pollare som kräver en
 injekterad HTTP-klient och en executor-adapter som kräver en injekterad

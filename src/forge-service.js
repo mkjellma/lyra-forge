@@ -9,13 +9,14 @@ function errorCategory(error, fallback) {
 }
 
 export class ForgeService {
-  constructor({ registry, releases, audit, gitProvider, buildExecutor, runtimeExecutor, stateStore = null, buildQueue = new SingleBuildQueue() }) {
+  constructor({ registry, releases, audit, gitProvider, buildExecutor, runtimeExecutor, deploymentAdapter = null, stateStore = null, buildQueue = new SingleBuildQueue() }) {
     this.registry = registry;
     this.releases = releases;
     this.audit = audit;
     this.gitProvider = gitProvider;
     this.buildExecutor = buildExecutor;
     this.runtimeExecutor = runtimeExecutor;
+    this.deploymentAdapter = deploymentAdapter;
     this.stateStore = stateStore;
     this.buildQueue = buildQueue;
   }
@@ -33,6 +34,7 @@ export class ForgeService {
 
   async getProjectStatus(projectId) {
     const project = this.registry.get(projectId);
+    await this.refreshCheckingRelease(project);
     const runtime = typeof this.runtimeExecutor.getRuntimeStatus === "function"
       ? await this.runtimeExecutor.getRuntimeStatus(project)
       : null;
@@ -40,13 +42,15 @@ export class ForgeService {
       projectId: project.projectId,
       deployPaused: this.registry.isPaused(projectId),
       activeRelease: this.releases.getActive(projectId),
+      pendingRelease: this.releases.getChecking(projectId),
       runtime,
       poll: this.gitProvider.getPollStatus?.(projectId) ?? { state: "unavailable", checkedAt: null, commitSha: null, errorCategory: null, etag: null }
     };
   }
 
-  listDeployHistory(projectId) {
-    this.registry.get(projectId);
+  async listDeployHistory(projectId) {
+    const project = this.registry.get(projectId);
+    await this.refreshCheckingRelease(project);
     return this.releases.listByProject(projectId);
   }
 
@@ -81,12 +85,23 @@ export class ForgeService {
       throw conflict("DEPLOY_PAUSED");
     }
 
+    await this.refreshCheckingRelease(project);
+    if (this.releases.getChecking(projectId)) {
+      this.audit.append({ action: "deploy", projectId, actorType, outcome: "rejected", commitSha: normalizedSha, errorCategory: "DEPLOYMENT_IN_PROGRESS" });
+      await this.persist();
+      throw conflict("DEPLOYMENT_IN_PROGRESS");
+    }
+
     try {
       await this.gitProvider.assertAllowedCommit(project, normalizedSha);
     } catch (error) {
       this.audit.append({ action: "deploy", projectId, actorType, outcome: "rejected", commitSha: normalizedSha, errorCategory: errorCategory(error, "GIT_VALIDATION_FAILED") });
       await this.persist();
       throw error;
+    }
+
+    if (this.deploymentAdapter) {
+      return this.startCoolifyDeploy(project, normalizedSha, actorType, "deploy");
     }
 
     let build;
@@ -138,7 +153,11 @@ export class ForgeService {
       throw conflict("NO_ACTIVE_RELEASE");
     }
     try {
-      await this.runtimeExecutor.restart({ project, release: activeRelease });
+      if (this.deploymentAdapter) {
+        await this.deploymentAdapter.restart(project);
+      } else {
+        await this.runtimeExecutor.restart({ project, release: activeRelease });
+      }
       this.audit.append({ action: "restart", projectId, actorType, outcome: "succeeded", releaseId: activeRelease.releaseId });
       await this.persist();
       return activeRelease;
@@ -166,6 +185,9 @@ export class ForgeService {
     if (target.state !== "previous") {
       throw conflict("ROLLBACK_TARGET_NOT_AVAILABLE");
     }
+    if (this.deploymentAdapter) {
+      return this.startCoolifyDeploy(project, target.commitSha, actorType, "rollback");
+    }
     const current = this.releases.getActive(projectId);
     try {
       await this.runtimeExecutor.activate({ project, release: target });
@@ -176,11 +198,70 @@ export class ForgeService {
       this.releases.setActive(projectId, target.releaseId);
       this.audit.append({ action: "rollback", projectId, actorType, outcome: "succeeded", releaseId: target.releaseId });
       await this.persist();
-      return this.releases.getSummary(target.releaseId);
+      return { outcome: "succeeded", release: this.releases.getSummary(target.releaseId) };
     } catch (error) {
       this.audit.append({ action: "rollback", projectId, actorType, outcome: "failed", releaseId: target.releaseId, errorCategory: errorCategory(error, "ROLLBACK_FAILED") });
       await this.persist();
       throw error;
     }
+  }
+
+  async startCoolifyDeploy(project, commitSha, actorType, operation) {
+    let started;
+    try {
+      started = operation === "rollback"
+        ? await this.deploymentAdapter.rollback(project, commitSha)
+        : await this.deploymentAdapter.startDeploy(project, commitSha);
+      if (!started || typeof started.deploymentId !== "string" || started.commitSha !== commitSha) {
+        throw conflict("COOLIFY_PROTOCOL_VIOLATION");
+      }
+    } catch (error) {
+      this.audit.append({ action: operation, projectId: project.projectId, actorType, outcome: "failed", commitSha, errorCategory: errorCategory(error, "COOLIFY_DEPLOY_FAILED") });
+      await this.persist();
+      return { outcome: "failed", release: null };
+    }
+
+    const release = this.releases.create({
+      projectId: project.projectId,
+      commitSha,
+      artifactId: `coolify-deployment:${started.deploymentId}`,
+      operation
+    });
+    this.releases.record(release.releaseId, "checking");
+    this.audit.append({ action: operation, projectId: project.projectId, actorType, outcome: "accepted", commitSha, releaseId: release.releaseId });
+    await this.persist();
+    await this.refreshCheckingRelease(project);
+    const summary = this.releases.getSummary(release.releaseId);
+    return { outcome: summary.state === "active" ? "succeeded" : summary.state === "failed" ? "failed" : "accepted", release: summary };
+  }
+
+  async refreshCheckingRelease(project) {
+    if (!this.deploymentAdapter) return;
+    const release = this.releases.getChecking(project.projectId);
+    if (!release) return;
+    const deploymentId = release.artifactId.startsWith("coolify-deployment:")
+      ? release.artifactId.slice("coolify-deployment:".length)
+      : null;
+    if (!deploymentId) throw conflict("COOLIFY_PROTOCOL_VIOLATION");
+
+    const status = await this.deploymentAdapter.getDeploymentStatus(deploymentId, release.commitSha);
+    if (status.state === "pending") return;
+    if (status.state === "failed") {
+      this.releases.record(release.releaseId, "failed", "COOLIFY_DEPLOYMENT_FAILED");
+      this.audit.append({ action: release.operation, projectId: project.projectId, actorType: "system", outcome: "failed", commitSha: release.commitSha, releaseId: release.releaseId, errorCategory: "COOLIFY_DEPLOYMENT_FAILED" });
+      await this.persist();
+      return;
+    }
+    if (status.state !== "succeeded") throw conflict("COOLIFY_PROTOCOL_VIOLATION");
+
+    const priorActive = this.releases.getActive(project.projectId);
+    if (priorActive) {
+      this.releases.record(priorActive.releaseId, "previous");
+    }
+    this.releases.record(release.releaseId, "ready");
+    this.releases.record(release.releaseId, "active");
+    this.releases.setActive(project.projectId, release.releaseId);
+    this.audit.append({ action: release.operation, projectId: project.projectId, actorType: "system", outcome: "succeeded", commitSha: release.commitSha, releaseId: release.releaseId });
+    await this.persist();
   }
 }

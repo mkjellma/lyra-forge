@@ -10,7 +10,7 @@ test("deploy promotes a healthy exact commit and retains the prior release", asy
   assert.equal(first.outcome, "succeeded");
   assert.equal(second.release.state, "active");
   assert.equal((await forge.getProjectStatus("adesco")).activeRelease.commitSha, SHA_B);
-  const history = forge.listDeployHistory("adesco");
+  const history = await forge.listDeployHistory("adesco");
   assert.equal(history[0].state, "previous");
   assert.equal(history[1].state, "active");
   assert.deepEqual(Object.keys(audit.listByProject("adesco")[0]).sort(), [
@@ -33,7 +33,7 @@ test("a failed build creates no release artifact and records only a normalized c
   const failed = await forge.requestDeploy("adesco", SHA_A);
 
   assert.deepEqual(failed, { outcome: "failed", release: null });
-  assert.deepEqual(forge.listDeployHistory("adesco"), []);
+  assert.deepEqual(await forge.listDeployHistory("adesco"), []);
   assert.equal(audit.listByProject("adesco")[0].errorCategory, "BUILD_FAILED");
 });
 
@@ -69,10 +69,11 @@ test("paused projects reject deploys and a retained release can be rolled back",
   const { forge } = makeForge();
   await forge.requestDeploy("adesco", SHA_A);
   await forge.requestDeploy("adesco", SHA_B);
-  const previous = forge.listDeployHistory("adesco")[0];
+  const previous = (await forge.listDeployHistory("adesco"))[0];
   const restored = await forge.rollbackProject("adesco", previous.releaseId);
 
-  assert.equal(restored.commitSha, SHA_A);
+  assert.equal(restored.outcome, "succeeded");
+  assert.equal(restored.release.commitSha, SHA_A);
   await forge.setDeployPaused("adesco", true);
   await assert.rejects(() => forge.requestDeploy("adesco", SHA_B), { code: "DEPLOY_PAUSED" });
 });
