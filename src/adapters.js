@@ -21,7 +21,7 @@ export class RejectingGitProvider {
 }
 
 export class FixtureBuildExecutor {
-  constructor({ build = async ({ commitSha }) => ({ artifactId: `artifact-${commitSha.slice(0, 12)}` }), health = async () => true } = {}) {
+  constructor({ build = async ({ commitSha }) => ({ artifactId: `sha256:${commitSha.slice(0, 1).repeat(64)}` }), health = async () => true } = {}) {
     this.build = build;
     this.health = health;
   }
@@ -53,4 +53,3 @@ export class RejectingRuntimeExecutor {
     throw conflict("RUNTIME_EXECUTOR_UNAVAILABLE");
   }
 }
-

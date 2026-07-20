@@ -80,7 +80,7 @@ export class ReleaseStore {
     if (state) this.restore(state);
   }
 
-  create({ projectId, commitSha, artifactId, operation = "deploy" }) {
+  create({ projectId, commitSha, artifactId, operation = "deploy", deploymentId = null }) {
     if (operation !== "deploy" && operation !== "rollback") {
       throw badRequest("INVALID_RELEASE_OPERATION");
     }
@@ -89,6 +89,7 @@ export class ReleaseStore {
       projectId,
       commitSha,
       artifactId,
+      deploymentId,
       operation,
       createdAt: this.now()
     });
@@ -96,6 +97,12 @@ export class ReleaseStore {
     this.events.set(release.releaseId, []);
     this.record(release.releaseId, "queued");
     return release;
+  }
+
+  setDeploymentId(releaseId, deploymentId) {
+    const release = this.getRecord(releaseId);
+    if (release.deploymentId !== null || typeof deploymentId !== "string" || deploymentId.length === 0) throw badRequest("INVALID_DEPLOYMENT_ID");
+    this.records.set(releaseId, Object.freeze({ ...release, deploymentId }));
   }
 
   record(releaseId, state, category = null) {
@@ -157,10 +164,10 @@ export class ReleaseStore {
       throw badRequest("INVALID_PERSISTED_STATE");
     }
     for (const record of state.records) {
-      if (!record || typeof record.releaseId !== "string" || typeof record.projectId !== "string" || typeof record.commitSha !== "string" || typeof record.artifactId !== "string" || typeof record.createdAt !== "string" || (record.operation !== undefined && record.operation !== "deploy" && record.operation !== "rollback")) {
+      if (!record || typeof record.releaseId !== "string" || typeof record.projectId !== "string" || typeof record.commitSha !== "string" || typeof record.artifactId !== "string" || (record.deploymentId !== undefined && record.deploymentId !== null && typeof record.deploymentId !== "string") || typeof record.createdAt !== "string" || (record.operation !== undefined && record.operation !== "deploy" && record.operation !== "rollback")) {
         throw badRequest("INVALID_PERSISTED_STATE");
       }
-      this.records.set(record.releaseId, Object.freeze({ ...record, operation: record.operation ?? "deploy" }));
+      this.records.set(record.releaseId, Object.freeze({ ...record, operation: record.operation ?? "deploy", deploymentId: record.deploymentId ?? null }));
     }
     for (const [releaseId, events] of state.events) {
       if (!this.records.has(releaseId) || !Array.isArray(events) || events.length === 0) {

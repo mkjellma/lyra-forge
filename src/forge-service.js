@@ -9,6 +9,11 @@ function errorCategory(error, fallback) {
     : fallback;
 }
 
+function immutableArtifact(value) {
+  if (typeof value !== "string" || !/^sha256:[a-f0-9]{64}$/i.test(value)) throw conflict("INVALID_BUILD_ARTIFACT");
+  return value.toLowerCase();
+}
+
 export class ForgeService {
   constructor({ registry, releases, audit, gitProvider, buildExecutor, runtimeExecutor, deploymentAdapter = null, projectProvisioner = new PendingProjectProvisioner(), stateStore = null, buildQueue = new SingleBuildQueue() }) {
     this.registry = registry;
@@ -133,16 +138,10 @@ export class ForgeService {
       throw error;
     }
 
-    if (this.deploymentAdapter) {
-      return this.startManagedDeploy(project, normalizedSha, actorType, "deploy");
-    }
-
     let build;
     try {
       build = await this.buildExecutor.build({ project, commitSha: normalizedSha });
-      if (!build?.artifactId || typeof build.artifactId !== "string") {
-        throw conflict("INVALID_BUILD_RESULT");
-      }
+      build = { artifactId: immutableArtifact(build?.artifactId) };
     } catch (error) {
       this.audit.append({ action: "deploy", projectId, actorType, outcome: "failed", commitSha: normalizedSha, errorCategory: errorCategory(error, "BUILD_FAILED") });
       await this.persist();
@@ -150,6 +149,7 @@ export class ForgeService {
     }
 
     const release = this.releases.create({ projectId, commitSha: normalizedSha, artifactId: build.artifactId });
+    if (this.deploymentAdapter) return this.startManagedDeploy(project, release, actorType, "deploy");
     this.releases.record(release.releaseId, "checking");
     try {
       const healthy = await this.buildExecutor.health({ project, release });
@@ -219,7 +219,8 @@ export class ForgeService {
       throw conflict("ROLLBACK_TARGET_NOT_AVAILABLE");
     }
     if (this.deploymentAdapter) {
-      return this.startManagedDeploy(project, target.commitSha, actorType, "rollback");
+      const release = this.releases.create({ projectId, commitSha: target.commitSha, artifactId: target.artifactId, operation: "rollback" });
+      return this.startManagedDeploy(project, release, actorType, "rollback");
     }
     const current = this.releases.getActive(projectId);
     try {
@@ -239,29 +240,24 @@ export class ForgeService {
     }
   }
 
-  async startManagedDeploy(project, commitSha, actorType, operation) {
+  async startManagedDeploy(project, release, actorType, operation) {
     let started;
     try {
       started = operation === "rollback"
-        ? await this.deploymentAdapter.rollback(project, commitSha)
-        : await this.deploymentAdapter.startDeploy(project, commitSha);
-      if (!started || typeof started.deploymentId !== "string" || started.commitSha !== commitSha) {
+        ? await this.deploymentAdapter.rollback(project, release)
+        : await this.deploymentAdapter.startDeploy(project, release);
+      if (!started || typeof started.deploymentId !== "string" || started.commitSha !== release.commitSha) {
         throw conflict("DEPLOYMENT_PROTOCOL_VIOLATION");
       }
     } catch (error) {
-      this.audit.append({ action: operation, projectId: project.projectId, actorType, outcome: "failed", commitSha, errorCategory: errorCategory(error, "DEPLOYMENT_START_FAILED") });
+      this.audit.append({ action: operation, projectId: project.projectId, actorType, outcome: "failed", commitSha: release.commitSha, errorCategory: errorCategory(error, "DEPLOYMENT_START_FAILED") });
       await this.persist();
       return { outcome: "failed", release: null };
     }
 
-    const release = this.releases.create({
-      projectId: project.projectId,
-      commitSha,
-      artifactId: `deployment-operation:${started.deploymentId}`,
-      operation
-    });
+    this.releases.setDeploymentId(release.releaseId, started.deploymentId);
     this.releases.record(release.releaseId, "checking");
-    this.audit.append({ action: operation, projectId: project.projectId, actorType, outcome: "accepted", commitSha, releaseId: release.releaseId });
+    this.audit.append({ action: operation, projectId: project.projectId, actorType, outcome: "accepted", commitSha: release.commitSha, releaseId: release.releaseId });
     await this.persist();
     await this.refreshCheckingRelease(project);
     const summary = this.releases.getSummary(release.releaseId);
@@ -272,9 +268,7 @@ export class ForgeService {
     if (!this.deploymentAdapter) return;
     const release = this.releases.getChecking(project.projectId);
     if (!release) return;
-    const deploymentId = release.artifactId.startsWith("deployment-operation:")
-      ? release.artifactId.slice("deployment-operation:".length)
-      : null;
+    const deploymentId = release.deploymentId;
     if (!deploymentId) throw conflict("DEPLOYMENT_PROTOCOL_VIOLATION");
 
     const status = await this.deploymentAdapter.getDeploymentStatus({ project, release, deploymentId });

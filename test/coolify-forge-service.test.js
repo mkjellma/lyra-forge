@@ -10,9 +10,9 @@ function deploymentFixture(states) {
     async getRuntimeStatus() {
       return { state: "running", activeCommitSha: SHA_A };
     },
-    async startDeploy(project, commitSha) {
-      calls.push({ operation: "deploy", projectId: project.projectId, commitSha });
-      return { deploymentId: `deployment-${nextDeployment++}`, commitSha };
+    async startDeploy(project, release) {
+      calls.push({ operation: "deploy", projectId: project.projectId, commitSha: release.commitSha, artifactId: release.artifactId });
+      return { deploymentId: `deployment-${nextDeployment++}`, commitSha: release.commitSha };
     },
     async getDeploymentStatus({ deploymentId, release, project }) {
       calls.push({ operation: "status", deploymentId, commitSha: release.commitSha, projectId: project.projectId });
@@ -22,9 +22,9 @@ function deploymentFixture(states) {
       calls.push({ operation: "restart", projectId: project.projectId });
       return { deploymentId: `restart-${nextDeployment++}` };
     },
-    async rollback(project, commitSha) {
-      calls.push({ operation: "rollback", projectId: project.projectId, commitSha });
-      return { deploymentId: `deployment-${nextDeployment++}`, commitSha };
+    async rollback(project, release) {
+      calls.push({ operation: "rollback", projectId: project.projectId, commitSha: release.commitSha, artifactId: release.artifactId });
+      return { deploymentId: `deployment-${nextDeployment++}`, commitSha: release.commitSha };
     }
   };
   return adapter;
@@ -76,9 +76,9 @@ test("restart, deploypaus och rollback använder endast begränsade capabilities
   await forge.setDeployPaused("adesco", true);
   await assert.rejects(() => forge.requestDeploy("adesco", SHA_B), { code: "DEPLOY_PAUSED" });
   assert.deepEqual(adapter.calls.filter((call) => call.operation === "deploy" || call.operation === "rollback"), [
-    { operation: "deploy", projectId: "adesco", commitSha: SHA_A },
-    { operation: "deploy", projectId: "adesco", commitSha: SHA_B },
-    { operation: "rollback", projectId: "adesco", commitSha: SHA_A }
+    { operation: "deploy", projectId: "adesco", commitSha: SHA_A, artifactId: `sha256:${"a".repeat(64)}` },
+    { operation: "deploy", projectId: "adesco", commitSha: SHA_B, artifactId: `sha256:${"b".repeat(64)}` },
+    { operation: "rollback", projectId: "adesco", commitSha: SHA_A, artifactId: `sha256:${"a".repeat(64)}` }
   ]);
 });
 

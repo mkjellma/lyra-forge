@@ -4,6 +4,7 @@ import { assertCommitSha, assertRuntimeBinding } from "./validation.js";
 const OPERATION_ID = /^[a-z0-9]([-a-z0-9]*[a-z0-9])?$/;
 const WORKLOAD_STATES = new Set(["pending", "running", "failed", "unknown"]);
 const RELEASE_STATES = new Set(["pending", "succeeded", "failed"]);
+const ARTIFACT_DIGEST = /^sha256:[a-f0-9]{64}$/;
 
 function protocolError() {
   return conflict("KUBERNETES_PROTOCOL_VIOLATION");
@@ -39,6 +40,11 @@ function commit(value) {
   }
 }
 
+function artifactDigest(value) {
+  if (typeof value !== "string" || !ARTIFACT_DIGEST.test(value)) throw protocolError();
+  return value;
+}
+
 /**
  * Forge's only Kubernetes boundary. The injected client is responsible for
  * mapping these fixed calls to Kubernetes Jobs and Deployments; Forge never
@@ -62,10 +68,10 @@ export class KubernetesApiAdapter {
     return Object.freeze({ state: result.state, activeCommitSha: result.activeCommitSha });
   }
 
-  async startDeploy(project, commitSha) {
+  async startDeploy(project, release) {
     const binding = bindingFor(project);
-    const normalizedCommitSha = commit(commitSha);
-    const result = await this.client.startRelease(Object.freeze({ binding, projectId: projectId(project), commitSha: normalizedCommitSha }));
+    const normalizedCommitSha = commit(release?.commitSha);
+    const result = await this.client.startRelease(Object.freeze({ binding, projectId: projectId(project), commitSha: normalizedCommitSha, artifactDigest: artifactDigest(release?.artifactId) }));
     if (!exactKeys(result, ["commitSha", "operationId"]) || operationId(result.operationId) !== result.operationId || commit(result.commitSha) !== normalizedCommitSha) {
       throw protocolError();
     }
@@ -95,7 +101,7 @@ export class KubernetesApiAdapter {
     return Object.freeze({ deploymentId: result.operationId });
   }
 
-  async rollback(project, commitSha) {
-    return this.startDeploy(project, commitSha);
+  async rollback(project, release) {
+    return this.startDeploy(project, release);
   }
 }

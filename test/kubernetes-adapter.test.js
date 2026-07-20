@@ -32,24 +32,24 @@ test("Kubernetes-adaptern använder enbart fasta build- och workload-capabilitie
   const { calls, client } = clientFixture();
   const adapter = new KubernetesApiAdapter({ client });
   const project = exampleProject();
-  const release = { releaseId: "release-1", commitSha: SHA_B };
+  const release = { releaseId: "release-1", commitSha: SHA_B, artifactId: `sha256:${"b".repeat(64)}` };
 
   assert.deepEqual(await adapter.getRuntimeStatus(project), { state: "running", activeCommitSha: SHA_A });
-  assert.deepEqual(await adapter.startDeploy(project, SHA_B), { deploymentId: "build-adesco-aaaaaaaaaaaa", commitSha: SHA_B });
+  assert.deepEqual(await adapter.startDeploy(project, release), { deploymentId: "build-adesco-aaaaaaaaaaaa", commitSha: SHA_B });
   assert.deepEqual(await adapter.getDeploymentStatus({ project, release, deploymentId: "build-adesco-aaaaaaaaaaaa" }), {
     deploymentId: "build-adesco-aaaaaaaaaaaa",
     commitSha: SHA_B,
     state: "succeeded"
   });
   assert.deepEqual(await adapter.restart(project), { deploymentId: "restart-adesco" });
-  assert.deepEqual(await adapter.rollback(project, SHA_A), { deploymentId: "build-adesco-aaaaaaaaaaaa", commitSha: SHA_A });
+  assert.deepEqual(await adapter.rollback(project, { ...release, commitSha: SHA_A, artifactId: `sha256:${"a".repeat(64)}` }), { deploymentId: "build-adesco-aaaaaaaaaaaa", commitSha: SHA_A });
 
   assert.deepEqual(calls, [
     { operation: "getWorkload", binding: project.runtimeBinding },
-    { operation: "startRelease", binding: project.runtimeBinding, projectId: "adesco", commitSha: SHA_B },
+    { operation: "startRelease", binding: project.runtimeBinding, projectId: "adesco", commitSha: SHA_B, artifactDigest: `sha256:${"b".repeat(64)}` },
     { operation: "getReleaseStatus", binding: project.runtimeBinding, projectId: "adesco", releaseId: "release-1", operationId: "build-adesco-aaaaaaaaaaaa", commitSha: SHA_B },
     { operation: "restartWorkload", binding: project.runtimeBinding, projectId: "adesco" },
-    { operation: "startRelease", binding: project.runtimeBinding, projectId: "adesco", commitSha: SHA_A }
+    { operation: "startRelease", binding: project.runtimeBinding, projectId: "adesco", commitSha: SHA_A, artifactDigest: `sha256:${"a".repeat(64)}` }
   ]);
 });
 
