@@ -11,26 +11,26 @@
 
 ## Kontrakt för första Lyra-sprinten
 
-Lyra är endast en läsande klient i första steget.
+Lyra är endast en läsande klient i första steget. Dess separata
+serverkonfigurerade `FORGE_LYRA_READ_TOKEN` medger endast statusläsning; den
+är inte en administrativ API-token.
 
 | Endpoint | Syfte |
 | --- | --- |
-| `GET /v1/status` | API-version, deklarerade capabilities och content-free projekträknare. |
-| `GET /v1/projects` | Registrerade projekt, utan runtimebindningar eller hemligheter. |
-| `GET /v1/projects/{projectId}` | Status för ett registrerat projekt. |
-| `GET /v1/projects/{projectId}/releases` | Deployhistorik för ett registrerat projekt. |
+| `GET /v1/status` | Begränsat läskontrakt: schema, tjänstenamn, `forge.read_status` och projekttotal. |
 
-Alla `/v1/*`-endpoints kräver `Authorization: Bearer <Forge-token>`.
-`/healthz` är endast en intern health-check och ska inte vara Lyra-funktion.
+`GET /v1/status` accepterar Lyra-lästoken eller Forge admin-token. Alla andra
+`/v1/*`-endpoints kräver admin-token; Lyra-lästoken accepterar varken andra
+`GET`-rutter eller `POST`. `/healthz` är endast en intern health-check och ska
+inte vara Lyra-funktion.
 
 ## Hemligheter och nätverk
 
-- Tokenvärdet finns endast i Lenovos Kubernetes-secret och ägarens
-  lösenordshanterare. Det får aldrig skrivas i Git, klientkod, loggar eller
-  denna handoff.
-- Lyra ska läsa token och bas-URL från sin befintliga säkra
+- Tokenvärden får aldrig skrivas i Git, klientkod, loggar eller denna handoff.
+- Lyra ska läsa sin separata lästoken och bas-URL från sin befintliga säkra
   serverkonfiguration, inte från frontend eller miljövariabler som exponeras
-  till klienten.
+  till klienten. Forge läser lästokenen från sin egen serverkonfiguration,
+  aldrig från requestens query eller body.
 - Trafiken är för närvarande privat LAN-HTTP. Ingen publik DNS, ingress,
   Caddy-ändring eller router-portforward finns. TLS och en snävare
   nätverksallowlist är uttryckligen senare härdning.

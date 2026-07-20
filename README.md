@@ -58,8 +58,12 @@ den skapar ännu ingen GitHub-, Kubernetes- eller värdresurs. Den smala interna
 provisioneringsgränsen är avsedd för den senare, godkända k3s-motorn.
 
 `GET /v1/status` är det stabila, bearer-skyddade ingångskontraktet för Lyra.
-Det returnerar endast API-version, tillåtna Forge-capabilities och content-free
-projekträknare; inga secrets, runtimebindningar eller fria loggdata exponeras.
+När den valfria serverkonfigurerade `FORGE_LYRA_READ_TOKEN` används får den
+endast läsa denna route och får ett begränsat kontrakt med schema, tjänstenamn,
+projekttotal och `forge.read_status`. Den ger varken åtkomst till övriga
+`GET`-rutter eller någon `POST`-route. Den befintliga `FORGE_API_TOKEN` är
+fortsatt adminidentiteten och behåller sitt detaljerade statuskontrakt. Inga
+tokenvärden tas från query/body eller loggas.
 
 Kärnan innehåller också projektregister, release-state-machine,
 content-free auditlogg, atomiskt sparad lokal state med filrättighet `0600` och
@@ -85,5 +89,7 @@ npm run check
 ```
 
 `npm start` kräver en lokal `FORGE_API_TOKEN`-miljövariabel och lyssnar som
-standard på `127.0.0.1:3000`. Containern använder samma `/healthz`-endpoint
-internt; den skapar ingen publik exponering. Lägg aldrig tokenvärdet i Git.
+standard på `127.0.0.1:3000`. `FORGE_LYRA_READ_TOKEN` är valfri, måste vara
+skild från admin-tokenen och läses endast från serverkonfigurationen.
+Containern använder samma `/healthz`-endpoint internt; den skapar ingen publik
+exponering. Lägg aldrig tokenvärden i Git.

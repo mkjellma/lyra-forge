@@ -3,6 +3,11 @@ function requiredString(value, code) {
   return value;
 }
 
+function optionalString(value, code) {
+  if (value === undefined) return undefined;
+  return requiredString(value, code);
+}
+
 function port(value) {
   const parsed = Number(value ?? 3000);
   if (!Number.isInteger(parsed) || parsed < 1 || parsed > 65535) throw new Error("FORGE_PORT_INVALID");
@@ -13,9 +18,14 @@ export function loadRuntimeConfig(environment = process.env) {
   const bindHost = environment.FORGE_BIND_HOST ?? "127.0.0.1";
   if (bindHost !== "127.0.0.1" && bindHost !== "0.0.0.0") throw new Error("FORGE_BIND_HOST_INVALID");
 
+  const apiToken = requiredString(environment.FORGE_API_TOKEN, "FORGE_API_TOKEN_REQUIRED");
+  const lyraReadToken = optionalString(environment.FORGE_LYRA_READ_TOKEN, "FORGE_LYRA_READ_TOKEN_INVALID");
+  if (lyraReadToken === apiToken) throw new Error("FORGE_LYRA_READ_TOKEN_MUST_DIFFER");
+
   return Object.freeze({
-    apiToken: requiredString(environment.FORGE_API_TOKEN, "FORGE_API_TOKEN_REQUIRED"),
+    apiToken,
     bindHost,
+    lyraReadToken,
     port: port(environment.FORGE_PORT),
     statePath: environment.FORGE_STATE_PATH ?? "data/forge-state.json"
   });

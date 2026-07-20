@@ -25,7 +25,7 @@ const forge = new ForgeService({
   stateStore
 });
 
-const server = createForgeHttpServer({ forge, apiToken: runtime.apiToken });
+const server = createForgeHttpServer({ forge, apiToken: runtime.apiToken, lyraReadToken: runtime.lyraReadToken });
 server.listen(runtime.port, runtime.bindHost, () => {
   const address = server.address();
   process.stdout.write(`Forge listening on ${address.address}:${address.port}\n`);

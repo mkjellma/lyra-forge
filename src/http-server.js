@@ -60,9 +60,24 @@ function forgeStatus(forge) {
   });
 }
 
-export function createForgeRequestHandler({ forge, apiToken }) {
+function lyraReadStatus(forge) {
+  return Object.freeze({
+    schema: "forge.read-status.v1",
+    service: "lyra-forge",
+    capabilities: Object.freeze(["forge.read_status"]),
+    projects: Object.freeze({ total: forge.listProjects().length })
+  });
+}
+
+export function createForgeRequestHandler({ forge, apiToken, lyraReadToken }) {
   if (!apiToken || typeof apiToken !== "string") {
     throw new Error("FORGE_API_TOKEN_REQUIRED");
+  }
+  if (lyraReadToken !== undefined && (typeof lyraReadToken !== "string" || lyraReadToken.length === 0)) {
+    throw new Error("FORGE_LYRA_READ_TOKEN_INVALID");
+  }
+  if (lyraReadToken === apiToken) {
+    throw new Error("FORGE_LYRA_READ_TOKEN_MUST_DIFFER");
   }
 
   return async (request, response) => {
@@ -74,12 +89,19 @@ export function createForgeRequestHandler({ forge, apiToken }) {
 
       const authorization = request.headers.authorization;
       const bearerToken = authorization?.startsWith("Bearer ") ? authorization.slice(7) : "";
-      if (!tokensMatch(bearerToken, apiToken)) {
+
+      if (request.method === "GET" && url.pathname === "/v1/status") {
+        if (tokensMatch(bearerToken, apiToken)) {
+          return send(response, 200, forgeStatus(forge));
+        }
+        if (lyraReadToken && tokensMatch(bearerToken, lyraReadToken)) {
+          return send(response, 200, lyraReadStatus(forge));
+        }
         throw unauthorized();
       }
 
-      if (request.method === "GET" && url.pathname === "/v1/status") {
-        return send(response, 200, forgeStatus(forge));
+      if (!tokensMatch(bearerToken, apiToken)) {
+        throw unauthorized();
       }
 
       if (url.pathname === "/v1/projects") {
