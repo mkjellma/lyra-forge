@@ -57,6 +57,10 @@ innehåller ett Lyra-skyddat API för att lista och registrera projekt via
 den skapar ännu ingen GitHub-, Kubernetes- eller värdresurs. Den smala interna
 provisioneringsgränsen är avsedd för den senare, godkända k3s-motorn.
 
+`GET /v1/status` är det stabila, bearer-skyddade ingångskontraktet för Lyra.
+Det returnerar endast API-version, tillåtna Forge-capabilities och content-free
+projekträknare; inga secrets, runtimebindningar eller fria loggdata exponeras.
+
 Kärnan innehåller också projektregister, release-state-machine,
 content-free auditlogg, atomiskt sparad lokal state med filrättighet `0600` och
 ett loopback-bundet, bearer-skyddat API. Buildflödet är serialiserat till en

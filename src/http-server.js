@@ -3,6 +3,17 @@ import { timingSafeEqual } from "node:crypto";
 import { ForgeError, badRequest, unauthorized } from "./errors.js";
 
 const JSON_LIMIT_BYTES = 16 * 1024;
+const API_VERSION = "v1";
+const CAPABILITIES = Object.freeze([
+  "projects.list",
+  "projects.status",
+  "projects.history",
+  "projects.register",
+  "deploy.request",
+  "deploy.restart",
+  "deploy.pause",
+  "deploy.rollback"
+]);
 
 function tokensMatch(received, expected) {
   const receivedBuffer = Buffer.from(received ?? "");
@@ -38,6 +49,17 @@ function send(response, status, body) {
   response.end(JSON.stringify(body));
 }
 
+function forgeStatus(forge) {
+  const projects = forge.listProjects();
+  const pending = projects.filter((project) => project.provisioningState === "pending").length;
+  return Object.freeze({
+    apiVersion: API_VERSION,
+    service: "lyra-forge",
+    capabilities: CAPABILITIES,
+    projects: Object.freeze({ total: projects.length, pending, ready: projects.length - pending })
+  });
+}
+
 export function createForgeRequestHandler({ forge, apiToken }) {
   if (!apiToken || typeof apiToken !== "string") {
     throw new Error("FORGE_API_TOKEN_REQUIRED");
@@ -54,6 +76,10 @@ export function createForgeRequestHandler({ forge, apiToken }) {
       const bearerToken = authorization?.startsWith("Bearer ") ? authorization.slice(7) : "";
       if (!tokensMatch(bearerToken, apiToken)) {
         throw unauthorized();
+      }
+
+      if (request.method === "GET" && url.pathname === "/v1/status") {
+        return send(response, 200, forgeStatus(forge));
       }
 
       if (url.pathname === "/v1/projects") {

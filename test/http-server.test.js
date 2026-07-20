@@ -47,6 +47,36 @@ test("HTTP API requires a bearer token and exposes the bounded deploy capability
   assert.equal(status.body.activeRelease.commitSha, SHA_A);
 });
 
+test("HTTP API exposes a stable, content-free status contract for Lyra", async () => {
+  const { forge } = makeForge();
+  const handler = createForgeRequestHandler({ forge, apiToken: "test-token" });
+
+  const rejected = await call(handler, { method: "GET", url: "/v1/status" });
+  assert.equal(rejected.status, 401);
+
+  const status = await call(handler, {
+    method: "GET",
+    url: "/v1/status",
+    headers: { authorization: "Bearer test-token" }
+  });
+  assert.equal(status.status, 200);
+  assert.deepEqual(status.body, {
+    apiVersion: "v1",
+    service: "lyra-forge",
+    capabilities: [
+      "projects.list",
+      "projects.status",
+      "projects.history",
+      "projects.register",
+      "deploy.request",
+      "deploy.restart",
+      "deploy.pause",
+      "deploy.rollback"
+    ],
+    projects: { total: 1, pending: 0, ready: 1 }
+  });
+});
+
 test("HTTP API lets Lyra register and list a pending private project without exposing the runtime engine", async () => {
   const provisioned = [];
   const { forge } = makeForge({
