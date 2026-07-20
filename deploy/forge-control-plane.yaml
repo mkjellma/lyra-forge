@@ -117,21 +117,3 @@ spec:
       port: 3000
       targetPort: http
       nodePort: 30080
----
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: forge-api-from-owner-mac
-  namespace: forge-system
-spec:
-  podSelector:
-    matchLabels:
-      app.kubernetes.io/name: forge-control-plane
-  policyTypes: [Ingress]
-  ingress:
-    - from:
-        - ipBlock:
-            cidr: 192.168.1.70/32
-      ports:
-        - protocol: TCP
-          port: 3000
