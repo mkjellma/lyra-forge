@@ -1,10 +1,18 @@
 apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: forge-api
+  namespace: forge-system
+automountServiceAccountToken: false
+---
+apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: forge-state
   namespace: forge-system
 spec:
   accessModes: ["ReadWriteOnce"]
+  storageClassName: local-path
   resources:
     requests:
       storage: 1Gi
@@ -16,6 +24,9 @@ metadata:
   namespace: forge-system
 spec:
   replicas: 1
+  revisionHistoryLimit: 3
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app.kubernetes.io/name: forge-control-plane
@@ -24,13 +35,16 @@ spec:
       labels:
         app.kubernetes.io/name: forge-control-plane
     spec:
-      serviceAccountName: forge-control
+      serviceAccountName: forge-api
       automountServiceAccountToken: false
+      enableServiceLinks: false
+      terminationGracePeriodSeconds: 30
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000
         runAsGroup: 1000
         fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
         seccompProfile:
           type: RuntimeDefault
       containers:
@@ -45,9 +59,9 @@ spec:
               valueFrom:
                 secretKeyRef:
                   name: forge-api-token
-                  key: token
+                  key: api-token
             - name: FORGE_STATE_PATH
-              value: /app/data/forge-state.json
+              value: /var/lib/forge/forge-state.json
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
@@ -59,12 +73,18 @@ spec:
               memory: 128Mi
             limits:
               cpu: 500m
-              memory: 512Mi
+              memory: 256Mi
           readinessProbe:
             httpGet:
               path: /healthz
               port: http
             initialDelaySeconds: 3
+          startupProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 2
+            failureThreshold: 30
           livenessProbe:
             httpGet:
               path: /healthz
@@ -72,7 +92,7 @@ spec:
             initialDelaySeconds: 10
           volumeMounts:
             - name: state
-              mountPath: /app/data
+              mountPath: /var/lib/forge
       volumes:
         - name: state
           persistentVolumeClaim:
