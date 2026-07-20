@@ -18,7 +18,10 @@ const runtimeExecutor = runtime.coolify
   ? new CoolifyApiAdapter({ client: new CoolifyHttpClient(runtime.coolify) })
   : new RejectingRuntimeExecutor();
 const forge = new ForgeService({
-  registry: new ProjectRegistry(registrySource.projects, { pausedState: persistedState?.pausedProjects }),
+  registry: new ProjectRegistry(registrySource.projects, {
+    pausedState: persistedState?.pausedProjects,
+    registeredProjects: persistedState?.registeredProjects
+  }),
   releases: new ReleaseStore({ state: persistedState?.releases }),
   audit: new ContentFreeAuditLog({ state: persistedState?.audit }),
   gitProvider: new RejectingGitProvider(),

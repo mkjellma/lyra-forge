@@ -46,3 +46,45 @@ test("HTTP API requires a bearer token and exposes the bounded deploy capability
   });
   assert.equal(status.body.activeRelease.commitSha, SHA_A);
 });
+
+test("HTTP API lets Lyra register and list a pending private project without exposing the runtime engine", async () => {
+  const provisioned = [];
+  const { forge } = makeForge({
+    projectProvisioner: {
+      async provision(project) {
+        provisioned.push(project.projectId);
+        return { coolifyApplicationUuid: null };
+      }
+    }
+  });
+  const handler = createForgeRequestHandler({ forge, apiToken: "test-token" });
+  const project = {
+    projectId: "pilot-app",
+    repository: "https://github.com/example/pilot-app.git",
+    allowedBranch: "main",
+    buildProfile: "containerfile",
+    runtimeProfile: "private-http",
+    deployPolicy: "manual",
+    healthCheck: { path: "/healthz", timeoutMs: 3000 },
+    pollIntervalSeconds: 300
+  };
+
+  const created = await call(handler, {
+    method: "POST",
+    url: "/v1/projects",
+    headers: { authorization: "Bearer test-token", "content-type": "application/json" },
+    body: project
+  });
+  assert.equal(created.status, 201);
+  assert.deepEqual(provisioned, ["pilot-app"]);
+  assert.equal(created.body.project.provisioningState, "pending");
+  assert.equal(created.body.project.coolifyApplicationUuid, undefined);
+
+  const listed = await call(handler, {
+    method: "GET",
+    url: "/v1/projects",
+    headers: { authorization: "Bearer test-token" }
+  });
+  assert.equal(listed.status, 200);
+  assert.deepEqual(listed.body.projects.map((candidate) => candidate.projectId), ["adesco", "pilot-app"]);
+});

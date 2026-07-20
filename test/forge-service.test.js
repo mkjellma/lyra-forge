@@ -77,3 +77,33 @@ test("paused projects reject deploys and a retained release can be rolled back",
   await forge.setDeployPaused("adesco", true);
   await assert.rejects(() => forge.requestDeploy("adesco", SHA_B), { code: "DEPLOY_PAUSED" });
 });
+
+test("Lyra can register a project while provisioning remains an internal pending capability", async () => {
+  const provisioned = [];
+  const { forge, registry, audit } = makeForge({
+    projectProvisioner: {
+      async provision(project) {
+        provisioned.push(project.projectId);
+        return { coolifyApplicationUuid: null };
+      }
+    }
+  });
+
+  const project = await forge.registerProject({
+    projectId: "pilot-app",
+    repository: "https://github.com/example/pilot-app.git",
+    allowedBranch: "main",
+    buildProfile: "containerfile",
+    runtimeProfile: "private-http",
+    deployPolicy: "manual",
+    healthCheck: { path: "/healthz", timeoutMs: 3000 },
+    pollIntervalSeconds: 300
+  });
+
+  assert.deepEqual(provisioned, ["pilot-app"]);
+  assert.equal(project.provisioningState, "pending");
+  assert.equal((await forge.getProjectStatus("pilot-app")).runtime.state, "unprovisioned");
+  assert.deepEqual(registry.exportRegisteredProjects().map((candidate) => candidate.projectId), ["pilot-app"]);
+  assert.deepEqual(audit.listByProject("pilot-app").map((entry) => [entry.action, entry.outcome]), [["register", "accepted"]]);
+  await assert.rejects(() => forge.registerProject({ ...registry.get("pilot-app") }), { code: "PROJECT_ALREADY_REGISTERED" });
+});

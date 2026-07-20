@@ -11,7 +11,7 @@ export class JsonStateStore {
     try {
       const contents = await readFile(this.filePath, "utf8");
       const state = JSON.parse(contents);
-      if (!state || typeof state !== "object" || Array.isArray(state) || state.version !== 1) {
+      if (!state || typeof state !== "object" || Array.isArray(state) || (state.version !== 1 && state.version !== 2)) {
         throw badRequest("INVALID_PERSISTED_STATE");
       }
       return state;
@@ -30,4 +30,3 @@ export class JsonStateStore {
     await rename(temporaryPath, this.filePath);
   }
 }
-

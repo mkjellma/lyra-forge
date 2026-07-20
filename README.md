@@ -12,9 +12,9 @@ avsedda gränssnitt mot Forge-API:t.
 
 ## Status
 
-Detta repository innehåller för närvarande endast designunderlag. Det
-installerar ingenting, kontaktar inte GitHub och ändrar inte Lenovo, nätverk,
-secrets eller containrar.
+Detta repository innehåller en lokal, testad Forge-kärna. Den installerar
+ingenting, kontaktar inte GitHub och ändrar inte Lenovo, nätverk, secrets eller
+containrar av sig själv.
 
 ## Dokument
 
@@ -51,8 +51,13 @@ samma begränsade Forge-API, inte genom att Lyra får bredare värdåtkomst.
 
 ## Lokal utvecklingsgrund
 
-Den första körbara kärnan använder enbart Node.js standardbibliotek och har
-inga produktionsadaptrar. Den innehåller projektregister, release-state-machine,
+Den första körbara kärnan använder enbart Node.js standardbibliotek. Den
+innehåller ett Lyra-skyddat API för att lista och registrera projekt via
+`GET`/`POST /v1/projects`. En registrering sparas lokalt med status `pending`;
+den skapar ännu ingen GitHub-, Coolify- eller värdresurs. Den smala interna
+provisioneringsgränsen är avsedd för den senare, godkända motorn.
+
+Kärnan innehåller också projektregister, release-state-machine,
 content-free auditlogg, atomiskt sparad lokal state med filrättighet `0600` och
 ett loopback-bundet, bearer-skyddat API. Buildflödet är serialiserat till en
 build i taget för att skydda den första mini-PC:n.

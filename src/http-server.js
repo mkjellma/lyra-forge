@@ -56,6 +56,17 @@ export function createForgeRequestHandler({ forge, apiToken }) {
         throw unauthorized();
       }
 
+      if (url.pathname === "/v1/projects") {
+        if (request.method === "GET") {
+          return send(response, 200, { projects: forge.listProjects() });
+        }
+        if (request.method === "POST") {
+          const body = await readJson(request);
+          return send(response, 201, { project: await forge.registerProject(body) });
+        }
+        throw new ForgeError("ROUTE_NOT_FOUND", 404);
+      }
+
       const matches = url.pathname.match(/^\/v1\/projects\/([a-z][a-z0-9-]{1,62})(?:\/(releases|deploy|restart|deploy-pause|rollback))?$/);
       if (!matches) {
         throw new ForgeError("ROUTE_NOT_FOUND", 404);

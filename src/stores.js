@@ -1,21 +1,42 @@
-import { badRequest, notFound } from "./errors.js";
+import { badRequest, conflict, notFound } from "./errors.js";
 import { validateProject } from "./validation.js";
 
 export class ProjectRegistry {
-  constructor(projects, { pausedState = {} } = {}) {
+  constructor(projects, { pausedState = {}, registeredProjects = [] } = {}) {
     if (!Array.isArray(projects)) {
+      throw badRequest("INVALID_PROJECT_REGISTRY");
+    }
+    if (!Array.isArray(registeredProjects)) {
       throw badRequest("INVALID_PROJECT_REGISTRY");
     }
     this.projects = new Map();
     this.paused = new Map();
+    this.registeredProjectIds = new Set();
     for (const sourceProject of projects) {
-      const project = validateProject(sourceProject);
-      if (this.projects.has(project.projectId)) {
-        throw badRequest("DUPLICATE_PROJECT_ID");
-      }
-      this.projects.set(project.projectId, project);
-      this.paused.set(project.projectId, pausedState[project.projectId] === true);
+      this.add(sourceProject, { pausedState, registered: false, duplicateCode: "DUPLICATE_PROJECT_ID" });
     }
+    for (const sourceProject of registeredProjects) {
+      this.add(sourceProject, { pausedState, registered: true, duplicateCode: "DUPLICATE_PROJECT_ID" });
+    }
+  }
+
+  add(sourceProject, { pausedState, registered, duplicateCode }) {
+    const project = validateProject(sourceProject);
+    if (this.projects.has(project.projectId)) {
+      throw badRequest(duplicateCode);
+    }
+    this.projects.set(project.projectId, project);
+    this.paused.set(project.projectId, pausedState[project.projectId] === true);
+    if (registered) this.registeredProjectIds.add(project.projectId);
+    return project;
+  }
+
+  register(sourceProject) {
+    const project = validateProject(sourceProject);
+    if (this.projects.has(project.projectId)) {
+      throw conflict("PROJECT_ALREADY_REGISTERED");
+    }
+    return this.add(project, { pausedState: {}, registered: true, duplicateCode: "PROJECT_ALREADY_REGISTERED" });
   }
 
   get(projectId) {
@@ -38,6 +59,14 @@ export class ProjectRegistry {
 
   exportPauseState() {
     return Object.fromEntries(this.paused);
+  }
+
+  exportRegisteredProjects() {
+    return [...this.registeredProjectIds].map((projectId) => ({ ...this.get(projectId), healthCheck: { ...this.get(projectId).healthCheck } }));
+  }
+
+  list() {
+    return [...this.projects.values()].map((project) => ({ ...project, healthCheck: { ...project.healthCheck } }));
   }
 }
 
@@ -147,7 +176,7 @@ export class ReleaseStore {
   }
 }
 
-const AUDIT_ACTIONS = new Set(["deploy", "restart", "pause", "rollback", "poll"]);
+const AUDIT_ACTIONS = new Set(["register", "deploy", "restart", "pause", "rollback", "poll"]);
 const AUDIT_OUTCOMES = new Set(["accepted", "succeeded", "failed", "rejected"]);
 const ACTOR_TYPES = new Set(["lyra", "system"]);
 const ERROR_CATEGORY_PATTERN = /^[A-Z0-9_]{1,64}$/;

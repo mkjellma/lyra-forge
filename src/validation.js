@@ -68,7 +68,7 @@ export function validateProject(project) {
   if (!Number.isInteger(project.pollIntervalSeconds) || project.pollIntervalSeconds < 60) {
     throw badRequest("INVALID_POLL_INTERVAL");
   }
-  if (project.coolifyApplicationUuid !== undefined && (typeof project.coolifyApplicationUuid !== "string" || !COOLIFY_APPLICATION_ID_PATTERN.test(project.coolifyApplicationUuid))) {
+  if (project.coolifyApplicationUuid !== undefined && project.coolifyApplicationUuid !== null && (typeof project.coolifyApplicationUuid !== "string" || !COOLIFY_APPLICATION_ID_PATTERN.test(project.coolifyApplicationUuid))) {
     throw badRequest("INVALID_COOLIFY_APPLICATION");
   }
 

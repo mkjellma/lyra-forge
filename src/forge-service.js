@@ -1,6 +1,7 @@
 import { conflict, notFound } from "./errors.js";
 import { assertBoolean, assertCommitSha } from "./validation.js";
 import { SingleBuildQueue } from "./build-queue.js";
+import { PendingProjectProvisioner, provisionProject } from "./project-provisioner.js";
 
 function errorCategory(error, fallback) {
   return typeof error?.code === "string" && /^[A-Z0-9_]{1,64}$/.test(error.code)
@@ -9,7 +10,7 @@ function errorCategory(error, fallback) {
 }
 
 export class ForgeService {
-  constructor({ registry, releases, audit, gitProvider, buildExecutor, runtimeExecutor, deploymentAdapter = null, stateStore = null, buildQueue = new SingleBuildQueue() }) {
+  constructor({ registry, releases, audit, gitProvider, buildExecutor, runtimeExecutor, deploymentAdapter = null, projectProvisioner = new PendingProjectProvisioner(), stateStore = null, buildQueue = new SingleBuildQueue() }) {
     this.registry = registry;
     this.releases = releases;
     this.audit = audit;
@@ -17,6 +18,7 @@ export class ForgeService {
     this.buildExecutor = buildExecutor;
     this.runtimeExecutor = runtimeExecutor;
     this.deploymentAdapter = deploymentAdapter;
+    this.projectProvisioner = projectProvisioner;
     this.stateStore = stateStore;
     this.buildQueue = buildQueue;
   }
@@ -24,8 +26,9 @@ export class ForgeService {
   async persist() {
     if (!this.stateStore) return;
     await this.stateStore.save({
-      version: 1,
+      version: 2,
       pausedProjects: this.registry.exportPauseState(),
+      registeredProjects: this.registry.exportRegisteredProjects(),
       releases: this.releases.exportState(),
       audit: this.audit.exportState(),
       gitProviderState: this.gitProvider.exportState?.() ?? null
@@ -35,7 +38,9 @@ export class ForgeService {
   async getProjectStatus(projectId) {
     const project = this.registry.get(projectId);
     await this.refreshCheckingRelease(project);
-    const runtime = typeof this.runtimeExecutor.getRuntimeStatus === "function"
+    const runtime = project.coolifyApplicationUuid === null
+      ? { state: "unprovisioned", activeCommitSha: null }
+      : typeof this.runtimeExecutor.getRuntimeStatus === "function"
       ? await this.runtimeExecutor.getRuntimeStatus(project)
       : null;
     return {
@@ -52,6 +57,28 @@ export class ForgeService {
     const project = this.registry.get(projectId);
     await this.refreshCheckingRelease(project);
     return this.releases.listByProject(projectId);
+  }
+
+  listProjects() {
+    return this.registry.list().map((project) => ({
+      projectId: project.projectId,
+      repository: project.repository,
+      allowedBranch: project.allowedBranch,
+      buildProfile: project.buildProfile,
+      runtimeProfile: project.runtimeProfile,
+      deployPolicy: project.deployPolicy,
+      healthCheck: project.healthCheck,
+      pollIntervalSeconds: project.pollIntervalSeconds,
+      provisioningState: project.coolifyApplicationUuid === null ? "pending" : "ready"
+    }));
+  }
+
+  async registerProject(sourceProject, actorType = "lyra") {
+    const provisioned = await provisionProject(this.projectProvisioner, sourceProject);
+    const project = this.registry.register({ ...sourceProject, coolifyApplicationUuid: provisioned.coolifyApplicationUuid });
+    this.audit.append({ action: "register", projectId: project.projectId, actorType, outcome: "accepted" });
+    await this.persist();
+    return this.listProjects().find((candidate) => candidate.projectId === project.projectId);
   }
 
   async pollProject(projectId, actorType = "system") {
@@ -79,6 +106,11 @@ export class ForgeService {
   async performDeploy(projectId, commitSha, actorType) {
     const project = this.registry.get(projectId);
     const normalizedSha = assertCommitSha(commitSha);
+    if (this.deploymentAdapter && project.coolifyApplicationUuid === null) {
+      this.audit.append({ action: "deploy", projectId, actorType, outcome: "rejected", commitSha: normalizedSha, errorCategory: "PROJECT_NOT_PROVISIONED" });
+      await this.persist();
+      throw conflict("PROJECT_NOT_PROVISIONED");
+    }
     if (this.registry.isPaused(projectId)) {
       this.audit.append({ action: "deploy", projectId, actorType, outcome: "rejected", commitSha: normalizedSha, errorCategory: "DEPLOY_PAUSED" });
       await this.persist();
