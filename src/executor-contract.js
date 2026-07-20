@@ -24,6 +24,20 @@ function requireReleaseId(releaseId) {
   return releaseId;
 }
 
+function requireArtifactId(artifactId) {
+  if (typeof artifactId !== "string" || !SHA256_DIGEST.test(artifactId)) throw protocolError();
+  return artifactId;
+}
+
+function releasePayload(project, release) {
+  return {
+    projectId: requireProjectId(project?.projectId),
+    releaseId: requireReleaseId(release?.releaseId),
+    commitSha: assertCommitSha(release?.commitSha),
+    artifactId: requireArtifactId(release?.artifactId)
+  };
+}
+
 export class TypedExecutorAdapter {
   constructor({ transport }) {
     if (!transport || typeof transport.request !== "function") throw new TypeError("EXECUTOR_TRANSPORT_REQUIRED");
@@ -39,14 +53,14 @@ export class TypedExecutorAdapter {
     return result;
   }
 
-  async health({ release }) {
-    const result = await this.request("healthCheck", { releaseId: requireReleaseId(release.releaseId) });
+  async health({ project, release }) {
+    const result = await this.request("healthCheck", releasePayload(project, release));
     if (!exactKeys(result, ["healthy"]) || typeof result.healthy !== "boolean") throw protocolError();
     return result.healthy;
   }
 
-  async activate({ release }) {
-    const result = await this.request("activateRelease", { releaseId: requireReleaseId(release.releaseId) });
+  async activate({ project, release }) {
+    const result = await this.request("activateRelease", releasePayload(project, release));
     if (!exactKeys(result, ["activated"]) || result.activated !== true) throw protocolError();
   }
 

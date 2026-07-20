@@ -84,7 +84,7 @@ test("Lyra can register a project while provisioning remains an internal pending
     projectProvisioner: {
       async provision(project) {
         provisioned.push(project.projectId);
-        return { coolifyApplicationUuid: null };
+        return { runtimeBinding: null };
       }
     }
   });

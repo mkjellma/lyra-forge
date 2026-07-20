@@ -53,7 +53,7 @@ test("HTTP API lets Lyra register and list a pending private project without exp
     projectProvisioner: {
       async provision(project) {
         provisioned.push(project.projectId);
-        return { coolifyApplicationUuid: null };
+        return { runtimeBinding: null };
       }
     }
   });
@@ -78,7 +78,7 @@ test("HTTP API lets Lyra register and list a pending private project without exp
   assert.equal(created.status, 201);
   assert.deepEqual(provisioned, ["pilot-app"]);
   assert.equal(created.body.project.provisioningState, "pending");
-  assert.equal(created.body.project.coolifyApplicationUuid, undefined);
+  assert.equal(created.body.project.runtimeBinding, undefined);
 
   const listed = await call(handler, {
     method: "GET",

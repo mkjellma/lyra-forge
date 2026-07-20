@@ -27,16 +27,18 @@ function transportFixture() {
 test("typed executor adapter emits only bounded payloads and validates typed responses", async () => {
   const { calls, transport } = transportFixture();
   const executor = new TypedExecutorAdapter({ transport });
+  const project = exampleProject();
+  const release = { releaseId: "release-1", commitSha: SHA_A, artifactId: ARTIFACT };
 
-  assert.deepEqual(await executor.build({ project: exampleProject(), commitSha: SHA_A }), { artifactId: ARTIFACT });
-  assert.equal(await executor.health({ release: { releaseId: "release-1" } }), true);
-  await executor.activate({ release: { releaseId: "release-1" } });
-  await executor.restart({ project: exampleProject() });
+  assert.deepEqual(await executor.build({ project, commitSha: SHA_A }), { artifactId: ARTIFACT });
+  assert.equal(await executor.health({ project, release }), true);
+  await executor.activate({ project, release });
+  await executor.restart({ project });
   assert.deepEqual(await executor.getRuntimeStatus("adesco"), { state: "active", activeReleaseId: "release-1" });
   assert.deepEqual(calls, [
     { operation: "buildRegisteredCommit", payload: { projectId: "adesco", commitSha: SHA_A } },
-    { operation: "healthCheck", payload: { releaseId: "release-1" } },
-    { operation: "activateRelease", payload: { releaseId: "release-1" } },
+    { operation: "healthCheck", payload: { projectId: "adesco", releaseId: "release-1", commitSha: SHA_A, artifactId: ARTIFACT } },
+    { operation: "activateRelease", payload: { projectId: "adesco", releaseId: "release-1", commitSha: SHA_A, artifactId: ARTIFACT } },
     { operation: "restartActive", payload: { projectId: "adesco" } },
     { operation: "getRuntimeStatus", payload: { projectId: "adesco" } }
   ]);
@@ -61,4 +63,3 @@ test("Forge deploy can run through the local GitHub and executor adapters withou
   assert.equal(result.outcome, "succeeded");
   assert.equal(result.release.artifactId, ARTIFACT);
 });
-

@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { SHA_A, SHA_B, makeForge } from "./helpers.js";
 
-function coolifyFixture(states) {
+function deploymentFixture(states) {
   const calls = [];
   let nextDeployment = 1;
   const adapter = {
@@ -14,9 +14,9 @@ function coolifyFixture(states) {
       calls.push({ operation: "deploy", projectId: project.projectId, commitSha });
       return { deploymentId: `deployment-${nextDeployment++}`, commitSha };
     },
-    async getDeploymentStatus(deploymentId, commitSha) {
-      calls.push({ operation: "status", deploymentId, commitSha });
-      return { deploymentId, commitSha, state: states.shift() ?? "pending" };
+    async getDeploymentStatus({ deploymentId, release, project }) {
+      calls.push({ operation: "status", deploymentId, commitSha: release.commitSha, projectId: project.projectId });
+      return { deploymentId, commitSha: release.commitSha, state: states.shift() ?? "pending" };
     },
     async restart(project) {
       calls.push({ operation: "restart", projectId: project.projectId });
@@ -30,8 +30,8 @@ function coolifyFixture(states) {
   return adapter;
 }
 
-test("Forge behåller en exakt SHA som väntande tills Coolify rapporterar lyckad deployment", async () => {
-  const adapter = coolifyFixture(["pending", "succeeded"]);
+test("Forge behåller en exakt SHA som väntande tills adaptern rapporterar lyckad rollout", async () => {
+  const adapter = deploymentFixture(["pending", "succeeded"]);
   const { forge, audit } = makeForge({ runtimeExecutor: adapter, deploymentAdapter: adapter });
 
   const queued = await forge.requestDeploy("adesco", SHA_A);
@@ -48,8 +48,8 @@ test("Forge behåller en exakt SHA som väntande tills Coolify rapporterar lycka
   ]);
 });
 
-test("misslyckad Coolify-deployment lämnar föregående release aktiv", async () => {
-  const adapter = coolifyFixture(["succeeded", "failed"]);
+test("misslyckad rollout lämnar föregående release aktiv", async () => {
+  const adapter = deploymentFixture(["succeeded", "failed"]);
   const { forge } = makeForge({ runtimeExecutor: adapter, deploymentAdapter: adapter });
 
   await forge.requestDeploy("adesco", SHA_A);
@@ -60,8 +60,8 @@ test("misslyckad Coolify-deployment lämnar föregående release aktiv", async (
   assert.equal((await forge.getProjectStatus("adesco")).activeRelease.commitSha, SHA_A);
 });
 
-test("restart, deploypaus och rollback använder endast Coolifys begränsade capabilities", async () => {
-  const adapter = coolifyFixture(["succeeded", "succeeded", "pending", "succeeded"]);
+test("restart, deploypaus och rollback använder endast begränsade capabilities", async () => {
+  const adapter = deploymentFixture(["succeeded", "succeeded", "pending", "succeeded"]);
   const { forge } = makeForge({ runtimeExecutor: adapter, deploymentAdapter: adapter });
 
   await forge.requestDeploy("adesco", SHA_A);
@@ -82,8 +82,8 @@ test("restart, deploypaus och rollback använder endast Coolifys begränsade cap
   ]);
 });
 
-test("Forge startar inte en andra Coolify-build medan en registrerad deployment väntar", async () => {
-  const adapter = coolifyFixture(["pending", "pending"]);
+test("Forge startar inte en andra build medan en registrerad rollout väntar", async () => {
+  const adapter = deploymentFixture(["pending", "pending"]);
   const { forge } = makeForge({ runtimeExecutor: adapter, deploymentAdapter: adapter });
 
   await forge.requestDeploy("adesco", SHA_A);

@@ -23,7 +23,7 @@ containrar av sig själv.
 - [Arbetssätt för agenter](AGENTS.md)
 - [ADR-0001: privat deploy-control-plane](docs/adr/0001-private-deploy-control-plane.md)
 - [Förslag 0001: verktygskedja för v0](docs/decisions/0001-v0-toolchain-proposal.md)
-- [Förslag 0002: Coolify som Forge-motor](docs/decisions/0002-deploy-engine-proposal.md)
+- [Förslag 0002: historiskt Coolify-förslag](docs/decisions/0002-deploy-engine-proposal.md)
 
 ## Forge v0 i korthet
 
@@ -54,8 +54,8 @@ samma begränsade Forge-API, inte genom att Lyra får bredare värdåtkomst.
 Den första körbara kärnan använder enbart Node.js standardbibliotek. Den
 innehåller ett Lyra-skyddat API för att lista och registrera projekt via
 `GET`/`POST /v1/projects`. En registrering sparas lokalt med status `pending`;
-den skapar ännu ingen GitHub-, Coolify- eller värdresurs. Den smala interna
-provisioneringsgränsen är avsedd för den senare, godkända motorn.
+den skapar ännu ingen GitHub-, Kubernetes- eller värdresurs. Den smala interna
+provisioneringsgränsen är avsedd för den senare, godkända k3s-motorn.
 
 Kärnan innehåller också projektregister, release-state-machine,
 content-free auditlogg, atomiskt sparad lokal state med filrättighet `0600` och
@@ -63,10 +63,10 @@ ett loopback-bundet, bearer-skyddat API. Buildflödet är serialiserat till en
 build i taget för att skydda den första mini-PC:n.
 
 GitHub-adaptern är medvetet avvisande i den körbara processen tills en separat,
-registrerad GitHub-integration har godkänts. Build- och runtimeadaptrarna är
-också avvisande utan en komplett Coolify-runtimekonfiguration. Tester använder
-explicita fake-adaptrar för att verifiera deploy, health-check-fel, paus och
-rollback utan att kontakta GitHub eller skapa containrar.
+registrerad GitHub-integration har godkänts. En typad Kubernetes-adapter finns
+för k3s, men ingen Kubernetes-klient eller installation är ansluten. Tester
+använder explicita fake-adaptrar för att verifiera deploy, health-check-fel,
+paus och rollback utan att kontakta GitHub eller skapa containrar.
 
 Den adapterklara grunden innehåller också en GitHub REST-pollare som kräver en
 injekterad HTTP-klient och en executor-adapter som kräver en injekterad

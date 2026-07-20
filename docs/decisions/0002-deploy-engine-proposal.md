@@ -1,6 +1,7 @@
-# Förslag 0002: Coolify som Forge-motor
+# Förslag 0002: Coolify som Forge-motor (ersatt)
 
-- Status: **Föreslagen — kräver ägarbeslut**
+- Status: **Ersatt 2026-07-20 av Forge ovanpå k3s.** Dokumentet bevaras endast
+  som beslutshistorik; Coolify är inte Forge-motor.
 - Datum: 2026-07-19
 - Ersätter: förslag 0001:s rekommendation om egen Podman/Quadlet-executor
 

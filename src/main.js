@@ -1,8 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { ContentFreeAuditLog, ProjectRegistry, ReleaseStore } from "./stores.js";
 import { RejectingBuildExecutor, RejectingGitProvider, RejectingRuntimeExecutor } from "./adapters.js";
-import { CoolifyApiAdapter } from "./coolify-adapter.js";
-import { CoolifyHttpClient } from "./coolify-client.js";
 import { ForgeService } from "./forge-service.js";
 import { createForgeHttpServer } from "./http-server.js";
 import { JsonStateStore } from "./persistence.js";
@@ -14,9 +12,6 @@ const runtime = loadRuntimeConfig();
 const registrySource = JSON.parse(await readFile(registryPath, "utf8"));
 const stateStore = new JsonStateStore(runtime.statePath);
 const persistedState = await stateStore.load();
-const runtimeExecutor = runtime.coolify
-  ? new CoolifyApiAdapter({ client: new CoolifyHttpClient(runtime.coolify) })
-  : new RejectingRuntimeExecutor();
 const forge = new ForgeService({
   registry: new ProjectRegistry(registrySource.projects, {
     pausedState: persistedState?.pausedProjects,
@@ -26,8 +21,7 @@ const forge = new ForgeService({
   audit: new ContentFreeAuditLog({ state: persistedState?.audit }),
   gitProvider: new RejectingGitProvider(),
   buildExecutor: new RejectingBuildExecutor(),
-  runtimeExecutor,
-  deploymentAdapter: runtime.coolify ? runtimeExecutor : null,
+  runtimeExecutor: new RejectingRuntimeExecutor(),
   stateStore
 });
 

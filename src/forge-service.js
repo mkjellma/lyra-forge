@@ -1,5 +1,5 @@
 import { conflict, notFound } from "./errors.js";
-import { assertBoolean, assertCommitSha } from "./validation.js";
+import { assertBoolean, assertCommitSha, validateProject } from "./validation.js";
 import { SingleBuildQueue } from "./build-queue.js";
 import { PendingProjectProvisioner, provisionProject } from "./project-provisioner.js";
 
@@ -38,7 +38,7 @@ export class ForgeService {
   async getProjectStatus(projectId) {
     const project = this.registry.get(projectId);
     await this.refreshCheckingRelease(project);
-    const runtime = project.coolifyApplicationUuid === null
+    const runtime = project.runtimeBinding === null
       ? { state: "unprovisioned", activeCommitSha: null }
       : typeof this.runtimeExecutor.getRuntimeStatus === "function"
       ? await this.runtimeExecutor.getRuntimeStatus(project)
@@ -69,13 +69,14 @@ export class ForgeService {
       deployPolicy: project.deployPolicy,
       healthCheck: project.healthCheck,
       pollIntervalSeconds: project.pollIntervalSeconds,
-      provisioningState: project.coolifyApplicationUuid === null ? "pending" : "ready"
+      provisioningState: project.runtimeBinding === null ? "pending" : "ready"
     }));
   }
 
   async registerProject(sourceProject, actorType = "lyra") {
-    const provisioned = await provisionProject(this.projectProvisioner, sourceProject);
-    const project = this.registry.register({ ...sourceProject, coolifyApplicationUuid: provisioned.coolifyApplicationUuid });
+    const candidate = validateProject(sourceProject);
+    const provisioned = await provisionProject(this.projectProvisioner, candidate);
+    const project = this.registry.register({ ...candidate, runtimeBinding: provisioned.runtimeBinding });
     this.audit.append({ action: "register", projectId: project.projectId, actorType, outcome: "accepted" });
     await this.persist();
     return this.listProjects().find((candidate) => candidate.projectId === project.projectId);
@@ -106,7 +107,7 @@ export class ForgeService {
   async performDeploy(projectId, commitSha, actorType) {
     const project = this.registry.get(projectId);
     const normalizedSha = assertCommitSha(commitSha);
-    if (this.deploymentAdapter && project.coolifyApplicationUuid === null) {
+    if (this.deploymentAdapter && project.runtimeBinding === null) {
       this.audit.append({ action: "deploy", projectId, actorType, outcome: "rejected", commitSha: normalizedSha, errorCategory: "PROJECT_NOT_PROVISIONED" });
       await this.persist();
       throw conflict("PROJECT_NOT_PROVISIONED");
@@ -133,7 +134,7 @@ export class ForgeService {
     }
 
     if (this.deploymentAdapter) {
-      return this.startCoolifyDeploy(project, normalizedSha, actorType, "deploy");
+      return this.startManagedDeploy(project, normalizedSha, actorType, "deploy");
     }
 
     let build;
@@ -218,7 +219,7 @@ export class ForgeService {
       throw conflict("ROLLBACK_TARGET_NOT_AVAILABLE");
     }
     if (this.deploymentAdapter) {
-      return this.startCoolifyDeploy(project, target.commitSha, actorType, "rollback");
+      return this.startManagedDeploy(project, target.commitSha, actorType, "rollback");
     }
     const current = this.releases.getActive(projectId);
     try {
@@ -238,17 +239,17 @@ export class ForgeService {
     }
   }
 
-  async startCoolifyDeploy(project, commitSha, actorType, operation) {
+  async startManagedDeploy(project, commitSha, actorType, operation) {
     let started;
     try {
       started = operation === "rollback"
         ? await this.deploymentAdapter.rollback(project, commitSha)
         : await this.deploymentAdapter.startDeploy(project, commitSha);
       if (!started || typeof started.deploymentId !== "string" || started.commitSha !== commitSha) {
-        throw conflict("COOLIFY_PROTOCOL_VIOLATION");
+        throw conflict("DEPLOYMENT_PROTOCOL_VIOLATION");
       }
     } catch (error) {
-      this.audit.append({ action: operation, projectId: project.projectId, actorType, outcome: "failed", commitSha, errorCategory: errorCategory(error, "COOLIFY_DEPLOY_FAILED") });
+      this.audit.append({ action: operation, projectId: project.projectId, actorType, outcome: "failed", commitSha, errorCategory: errorCategory(error, "DEPLOYMENT_START_FAILED") });
       await this.persist();
       return { outcome: "failed", release: null };
     }
@@ -256,7 +257,7 @@ export class ForgeService {
     const release = this.releases.create({
       projectId: project.projectId,
       commitSha,
-      artifactId: `coolify-deployment:${started.deploymentId}`,
+      artifactId: `deployment-operation:${started.deploymentId}`,
       operation
     });
     this.releases.record(release.releaseId, "checking");
@@ -271,20 +272,20 @@ export class ForgeService {
     if (!this.deploymentAdapter) return;
     const release = this.releases.getChecking(project.projectId);
     if (!release) return;
-    const deploymentId = release.artifactId.startsWith("coolify-deployment:")
-      ? release.artifactId.slice("coolify-deployment:".length)
+    const deploymentId = release.artifactId.startsWith("deployment-operation:")
+      ? release.artifactId.slice("deployment-operation:".length)
       : null;
-    if (!deploymentId) throw conflict("COOLIFY_PROTOCOL_VIOLATION");
+    if (!deploymentId) throw conflict("DEPLOYMENT_PROTOCOL_VIOLATION");
 
-    const status = await this.deploymentAdapter.getDeploymentStatus(deploymentId, release.commitSha);
+    const status = await this.deploymentAdapter.getDeploymentStatus({ project, release, deploymentId });
     if (status.state === "pending") return;
     if (status.state === "failed") {
-      this.releases.record(release.releaseId, "failed", "COOLIFY_DEPLOYMENT_FAILED");
-      this.audit.append({ action: release.operation, projectId: project.projectId, actorType: "system", outcome: "failed", commitSha: release.commitSha, releaseId: release.releaseId, errorCategory: "COOLIFY_DEPLOYMENT_FAILED" });
+      this.releases.record(release.releaseId, "failed", "DEPLOYMENT_FAILED");
+      this.audit.append({ action: release.operation, projectId: project.projectId, actorType: "system", outcome: "failed", commitSha: release.commitSha, releaseId: release.releaseId, errorCategory: "DEPLOYMENT_FAILED" });
       await this.persist();
       return;
     }
-    if (status.state !== "succeeded") throw conflict("COOLIFY_PROTOCOL_VIOLATION");
+    if (status.state !== "succeeded") throw conflict("DEPLOYMENT_PROTOCOL_VIOLATION");
 
     const priorActive = this.releases.getActive(project.projectId);
     if (priorActive) {

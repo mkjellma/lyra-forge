@@ -13,15 +13,10 @@ export function loadRuntimeConfig(environment = process.env) {
   const bindHost = environment.FORGE_BIND_HOST ?? "127.0.0.1";
   if (bindHost !== "127.0.0.1" && bindHost !== "0.0.0.0") throw new Error("FORGE_BIND_HOST_INVALID");
 
-  const coolifyUrl = environment.COOLIFY_API_URL;
-  const coolifyToken = environment.COOLIFY_API_TOKEN;
-  if (Boolean(coolifyUrl) !== Boolean(coolifyToken)) throw new Error("COOLIFY_CONFIGURATION_INCOMPLETE");
-
   return Object.freeze({
     apiToken: requiredString(environment.FORGE_API_TOKEN, "FORGE_API_TOKEN_REQUIRED"),
     bindHost,
     port: port(environment.FORGE_PORT),
-    statePath: environment.FORGE_STATE_PATH ?? "data/forge-state.json",
-    coolify: coolifyUrl ? Object.freeze({ baseUrl: coolifyUrl, apiToken: coolifyToken }) : null
+    statePath: environment.FORGE_STATE_PATH ?? "data/forge-state.json"
   });
 }
