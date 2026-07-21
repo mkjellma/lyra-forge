@@ -1,5 +1,5 @@
 import { conflict } from "./errors.js";
-import { buildOperationId, createNoccoBuildJob } from "./nocco-build-template.js";
+import { createNoccoBuildJob } from "./nocco-build-template.js";
 import { assertCommitSha } from "./validation.js";
 
 function protocolError() {
@@ -43,7 +43,7 @@ export class NoccoBuildExecutor {
     const job = await this.jobClient.getJob({ namespace: "forge-build", name: operationId });
     const commitSha = job?.metadata?.labels?.["forge.lyra/commit"];
     const policy = this.policies.get(job?.metadata?.labels?.["forge.lyra/project"]);
-    if (!policy || buildOperationId(policy, assertCommitSha(commitSha)) !== operationId) {
+    if (!policy || !operationId.endsWith(`-${assertCommitSha(commitSha).slice(0, 12)}`)) {
       throw protocolError();
     }
     const conditions = Array.isArray(job.status?.conditions) ? job.status.conditions : [];

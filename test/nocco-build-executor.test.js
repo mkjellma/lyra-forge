@@ -108,6 +108,22 @@ test("executorn normaliserar status för ett inventerat projektjobb", async () =
   assert.deepEqual(await executor.getBuildStatus({ operationId }), { operationId, commitSha: SHA_A, state: "succeeded" });
 });
 
+test("executorn kan läsa en äldre buildstatus när Jobbets labels fortfarande matchar inventeringen", async () => {
+  const operationId = "forge-build-adesco-aaaaaaaaaaaa";
+  const executor = new NoccoBuildExecutor({
+    checkoutImage: CHECKOUT_IMAGE,
+    builderImage: BUILDER_IMAGE,
+    policies,
+    jobClient: {
+      async createJob() { throw new Error("not used by getBuildStatus"); },
+      async getJob() {
+        return { metadata: { name: operationId, namespace: "forge-build", labels: { "forge.lyra/project": "adesco-webb", "forge.lyra/commit": SHA_A } }, status: { succeeded: 1 } };
+      }
+    }
+  });
+  assert.equal((await executor.getBuildStatus({ operationId })).state, "succeeded");
+});
+
 test("Kubernetes Job-klienten normaliserar API-avslag utan response-innehåll", async () => {
   const client = new KubernetesJobClient({ apiOrigin: "https://kubernetes.default.svc:443", token: "token", fetchFn: async () => ({ status: 422, ok: false }) });
   await assert.rejects(() => client.createJob({ metadata: { name: "forge-build-adesco-webb-aaaaaaaaaaaa", namespace: "forge-build" } }), { code: "KUBERNETES_JOB_REJECTED" });
