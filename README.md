@@ -80,10 +80,11 @@ fast definierade profilen är `nextjs-npm`: Node 24.18.0, `npm ci` och
 använder explicita fake-adaptrar för att verifiera deploy, health-check-fel,
 paus och rollback utan att kontakta GitHub eller skapa containrar.
 
-Källträdet innehåller också en owner-side factory för Adescos enda tillåtna
-k3s-Jobb och dess minsta RBAC-kontrakt. När den aktiveras körs den som en
-lokal sidecar bakom Unix-socket; den får ingen publik Service och Forge-
-containern får ingen Kubernetes-token.
+Källträdet innehåller också en owner-side factory för `nextjs-npm`-Jobb och
+dess minsta RBAC-kontrakt. En ägarstyrd buildinventering mappar registrerade
+projekt till fast repo, branch och deploy-key-referens. När den aktiveras körs
+executorn som en lokal sidecar bakom Unix-socket; den får ingen publik Service
+och Forge-containern får ingen Kubernetes-token.
 
 Den adapterklara grunden innehåller också en GitHub REST-pollare som kräver en
 injekterad HTTP-klient och en executor-adapter som kräver en injekterad

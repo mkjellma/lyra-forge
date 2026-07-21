@@ -39,7 +39,7 @@ export class UnixBuildExecutorClient {
   }
 
   async getBuildStatus({ operationId }) {
-    if (typeof operationId !== "string" || !/^forge-build-adesco-[a-f0-9]{12}$/.test(operationId)) throw protocolError();
+    if (typeof operationId !== "string" || !/^forge-build-[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$/.test(operationId)) throw protocolError();
     return this.request({ method: "GET", path: `/v1/builds/${operationId}` }, (response, body) => {
       if (response.statusCode !== 200 || !exactKeys(body, ["commitSha", "operationId", "state"]) || body.operationId !== operationId || typeof body.commitSha !== "string" || !["pending", "succeeded", "failed"].includes(body.state)) {
         throw protocolError();

@@ -11,15 +11,16 @@
    primära skydd. Admission utvärderas först när fler projekt eller noder gör
    dess driftkostnad motiverad.
 3. Koppla build-jobbklienten till exakt commit-SHA och normaliserad buildstatus
-   för Adesco. Detta är inte en runtime-deploy. Immutable artifact-id kommer
-   först med en separat, godkänd artifactkanal.
+   för en ägarinventerad projektpost. Adesco har verifierat första vägen.
+   Detta är inte en runtime-deploy. Immutable artifact-id kommer först med en
+   separat, godkänd artifactkanal.
 
 ## Första verkliga testet
 
-1. Registrera ett litet testprojekt med repo, branch, health route och
-   resursgräns.
-2. Låt Forge poll:a GitHub och bygga en exakt commit-SHA efter separat
-   credentialbeslut om repot inte är publikt.
+1. Adesco har byggts från privat GitHub-repo på exakt SHA med en repo-bunden
+   read-only deploy key.
+2. Lägg till nästa projekt i både Forge-registret och den ägarstyrda
+   buildinventeringen; det ska inte kräva någon kodändring.
 3. Besluta separat om artifact-publicering, runtime-deploy, health check och
    rollback till föregående fungerande release.
 

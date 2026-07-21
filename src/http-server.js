@@ -117,7 +117,7 @@ export function createForgeRequestHandler({ forge, apiToken, lyraReadToken }) {
         throw new ForgeError("ROUTE_NOT_FOUND", 404);
       }
 
-      const matches = url.pathname.match(/^\/v1\/projects\/([a-z][a-z0-9-]{1,62})(?:\/(releases|build|builds\/(forge-build-adesco-[a-f0-9]{12})|deploy|restart|deploy-pause|rollback))?$/);
+      const matches = url.pathname.match(/^\/v1\/projects\/([a-z][a-z0-9-]{1,62})(?:\/(releases|build|builds\/(forge-build-[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?)|deploy|restart|deploy-pause|rollback))?$/);
       if (!matches) {
         throw new ForgeError("ROUTE_NOT_FOUND", 404);
       }

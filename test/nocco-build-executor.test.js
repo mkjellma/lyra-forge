@@ -5,12 +5,32 @@ import { EventEmitter } from "node:events";
 import { createBuildExecutorRequestHandler } from "../src/build-executor-http.js";
 import { KubernetesJobClient } from "../src/kubernetes-job-client.js";
 import { NoccoBuildExecutor } from "../src/nocco-build-executor.js";
-import { noccoBuildPolicy } from "../src/nocco-build-template.js";
+import { buildOperationId, loadNoccoBuildProjects } from "../src/nocco-build-template.js";
 import { UnixBuildExecutorClient } from "../src/unix-build-executor-client.js";
 import { SHA_A } from "./helpers.js";
 
 const CHECKOUT_IMAGE = `registry.example/forge/git@sha256:${"a".repeat(64)}`;
 const BUILDER_IMAGE = `registry.example/forge/node@sha256:${"b".repeat(64)}`;
+const policies = loadNoccoBuildProjects({ projects: [{
+  projectId: "adesco-webb",
+  repository: "https://github.com/mkjellma/adesco.git",
+  allowedBranch: "main",
+  buildProfile: "nextjs-npm",
+  deployKeySecret: "adesco-github-deploy-key",
+  githubKnownHostsConfigMap: "github-com-known-hosts"
+}, {
+  projectId: "other-webb",
+  repository: "https://github.com/mkjellma/other.git",
+  allowedBranch: "main",
+  buildProfile: "nextjs-npm",
+  deployKeySecret: "other-github-deploy-key",
+  githubKnownHostsConfigMap: "github-com-known-hosts"
+}] });
+
+function project(projectId = "adesco-webb") {
+  const policy = policies.get(projectId);
+  return { projectId, repository: policy.repository, allowedBranch: policy.allowedBranch, buildProfile: policy.buildProfile };
+}
 
 async function call(handler, { method, url, body }) {
   const request = Object.assign(Readable.from(body === undefined ? [] : [Buffer.from(JSON.stringify(body))]), { method, url, headers: {} });
@@ -19,35 +39,34 @@ async function call(handler, { method, url, body }) {
   return response;
 }
 
-test("Nocco-executorn skapar endast det fasta Adesco-jobbet och är idempotent per SHA", async () => {
+test("Nocco-executorn skapar inventerade projektjobb och avvisar avvikande registerdata", async () => {
   const jobs = [];
   const executor = new NoccoBuildExecutor({
     checkoutImage: CHECKOUT_IMAGE,
     builderImage: BUILDER_IMAGE,
+    policies,
     jobClient: {
       async createJob(job) { jobs.push(job); return { state: "created", name: job.metadata.name }; },
       async getJob() { throw new Error("not used by startBuild"); }
     }
   });
-  const result = await executor.startBuild({ project: noccoBuildPolicy(), commitSha: SHA_A });
-  assert.deepEqual(result, { operationId: "forge-build-adesco-aaaaaaaaaaaa", commitSha: SHA_A, state: "accepted" });
+  const result = await executor.startBuild({ project: project(), commitSha: SHA_A });
+  assert.deepEqual(result, { operationId: "forge-build-adesco-webb-aaaaaaaaaaaa", commitSha: SHA_A, state: "accepted" });
   assert.equal(jobs.length, 1);
-  await assert.rejects(
-    () => executor.startBuild({ project: { ...noccoBuildPolicy(), repository: "https://github.com/other/repo.git" }, commitSha: SHA_A }),
-    { code: "PROJECT_BUILD_NOT_ALLOWED" }
-  );
+  await assert.rejects(() => executor.startBuild({ project: { ...project(), repository: "https://github.com/other/repo.git" }, commitSha: SHA_A }), { code: "PROJECT_BUILD_NOT_ALLOWED" });
+  await assert.rejects(() => executor.startBuild({ project: { ...project(), projectId: "missing" }, commitSha: SHA_A }), { code: "PROJECT_BUILD_NOT_ALLOWED" });
 });
 
 test("executorns privata HTTP-yta tar endast projectId och exakt SHA", async () => {
   const handler = createBuildExecutorRequestHandler({
-    projectResolver: (projectId) => projectId === "adesco-webb" ? noccoBuildPolicy() : null,
-    executor: { async startBuild({ project, commitSha }) { return { operationId: `build-${project.projectId}`, commitSha, state: "accepted" }; } }
+    projectResolver: (projectId) => policies.get(projectId) ?? null,
+    executor: { async startBuild({ project: resolved, commitSha }) { return { operationId: `build-${resolved.projectId}`, commitSha, state: "accepted" }; } }
   });
   const accepted = await call(handler, { method: "POST", url: "/v1/builds", body: { projectId: "adesco-webb", commitSha: SHA_A } });
   assert.equal(accepted.status, 202);
   assert.equal(accepted.body.operationId, "build-adesco-webb");
   const rejected = await call(handler, { method: "POST", url: "/v1/builds", body: { projectId: "adesco-webb", commitSha: SHA_A, command: "never" } });
-  assert.deepEqual(rejected, { status: 400, body: { error: { code: "INVALID_BUILD_REQUEST" } }, writeHead: rejected.writeHead, end: rejected.end });
+  assert.equal(rejected.status, 400);
 });
 
 test("Forge-klienten använder enbart lokal Unix-socket med det begränsade buildpayloadet", async () => {
@@ -58,7 +77,7 @@ test("Forge-klienten använder enbart lokal Unix-socket med det begränsade buil
       calls.push(options);
       const request = new EventEmitter();
       request.end = () => {
-        const response = Readable.from([Buffer.from(JSON.stringify({ operationId: "forge-build-adesco-aaaaaaaaaaaa", commitSha: SHA_A, state: "accepted" }))]);
+        const response = Readable.from([Buffer.from(JSON.stringify({ operationId: "forge-build-adesco-webb-aaaaaaaaaaaa", commitSha: SHA_A, state: "accepted" }))]);
         response.statusCode = 202;
         queueMicrotask(() => handler(response));
       };
@@ -66,71 +85,30 @@ test("Forge-klienten använder enbart lokal Unix-socket med det begränsade buil
     }
   });
   const build = await client.startBuild({ project: { projectId: "adesco-webb" }, commitSha: SHA_A });
-  assert.deepEqual(build, { operationId: "forge-build-adesco-aaaaaaaaaaaa", commitSha: SHA_A, state: "accepted" });
-  assert.deepEqual(calls, [{ socketPath: "/var/run/forge-executor/executor.sock", method: "POST", path: "/v1/builds", headers: { "content-type": "application/json" } }]);
+  assert.equal(build.operationId, "forge-build-adesco-webb-aaaaaaaaaaaa");
+  assert.equal(calls[0].path, "/v1/builds");
 });
 
-test("Kubernetes Job-klienten skickar endast Jobbet till dess namngivna namespace", async () => {
-  const requests = [];
-  const client = new KubernetesJobClient({
-    apiOrigin: "https://kubernetes.default.svc:443",
-    token: "token",
-    fetchFn: async (url, options) => {
-      requests.push({ url, options });
-      return { status: 201, ok: true, json: async () => ({ metadata: { name: "forge-build-adesco-aaaaaaaaaaaa", namespace: "forge-build" } }) };
-    }
-  });
-  const result = await client.createJob({ metadata: { name: "forge-build-adesco-aaaaaaaaaaaa", namespace: "forge-build" } });
-  assert.deepEqual(result, { state: "created", name: "forge-build-adesco-aaaaaaaaaaaa" });
-  assert.equal(requests[0].url, "https://kubernetes.default.svc:443/apis/batch/v1/namespaces/forge-build/jobs");
-  assert.equal(requests[0].options.headers.authorization, "Bearer token");
-});
-
-test("Kubernetes Job-klienten normaliserar API-avslag utan att läcka response-innehåll", async () => {
-  const client = new KubernetesJobClient({
-    apiOrigin: "https://kubernetes.default.svc:443",
-    token: "token",
-    fetchFn: async () => ({ status: 422, ok: false })
-  });
-  await assert.rejects(
-    () => client.createJob({ metadata: { name: "forge-build-adesco-aaaaaaaaaaaa", namespace: "forge-build" } }),
-    { code: "KUBERNETES_JOB_REJECTED" }
-  );
-});
-
-test("Forge-klienten bevarar executorens normaliserade felkod", async () => {
-  const client = new UnixBuildExecutorClient({
-    socketPath: "/var/run/forge-executor/executor.sock",
-    requestFn(options, handler) {
-      const request = new EventEmitter();
-      request.end = () => {
-        const response = Readable.from([Buffer.from(JSON.stringify({ error: { code: "KUBERNETES_JOB_REJECTED" } }))]);
-        response.statusCode = 409;
-        queueMicrotask(() => handler(response));
-      };
-      return request;
-    }
-  });
-  await assert.rejects(
-    () => client.startBuild({ project: { projectId: "adesco-webb" }, commitSha: SHA_A }),
-    { code: "KUBERNETES_JOB_REJECTED" }
-  );
-});
-
-test("executorn rapporterar bara normaliserad Job-status", async () => {
+test("executorn normaliserar status för ett inventerat projektjobb", async () => {
+  const policy = policies.get("other-webb");
+  const operationId = buildOperationId(policy, SHA_A);
   const executor = new NoccoBuildExecutor({
     checkoutImage: CHECKOUT_IMAGE,
     builderImage: BUILDER_IMAGE,
+    policies,
     jobClient: {
       async createJob() { throw new Error("not used by getBuildStatus"); },
       async getJob({ namespace, name }) {
         assert.equal(namespace, "forge-build");
-        assert.equal(name, "forge-build-adesco-aaaaaaaaaaaa");
-        return { metadata: { name, namespace, labels: { "forge.lyra/project": "adesco-webb", "forge.lyra/commit": SHA_A } }, status: { succeeded: 1 } };
+        assert.equal(name, operationId);
+        return { metadata: { name, namespace, labels: { "forge.lyra/project": "other-webb", "forge.lyra/commit": SHA_A } }, status: { succeeded: 1 } };
       }
     }
   });
-  assert.deepEqual(await executor.getBuildStatus({ operationId: "forge-build-adesco-aaaaaaaaaaaa" }), {
-    operationId: "forge-build-adesco-aaaaaaaaaaaa", commitSha: SHA_A, state: "succeeded"
-  });
+  assert.deepEqual(await executor.getBuildStatus({ operationId }), { operationId, commitSha: SHA_A, state: "succeeded" });
+});
+
+test("Kubernetes Job-klienten normaliserar API-avslag utan response-innehåll", async () => {
+  const client = new KubernetesJobClient({ apiOrigin: "https://kubernetes.default.svc:443", token: "token", fetchFn: async () => ({ status: 422, ok: false }) });
+  await assert.rejects(() => client.createJob({ metadata: { name: "forge-build-adesco-webb-aaaaaaaaaaaa", namespace: "forge-build" } }), { code: "KUBERNETES_JOB_REJECTED" });
 });

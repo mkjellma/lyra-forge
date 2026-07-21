@@ -22,17 +22,17 @@ Den redan installerade, ägarstyrda enkel-nods k3s-instansen på Nocco återanv�
 som privat exekveringsmotor. Forge installerar, uppgraderar, exponerar eller
 administrerar inte k3s.
 
-Först införs en enda build-only executor för den registrerade profilen
-`nextjs-npm` och det explicit allowlistade projektet `adesco-webb`:
+Först införs en build-only executor för den registrerade profilen
+`nextjs-npm` och explicit ägarinventerade projekt, med `adesco-webb` som första
+post:
 
 - Forge skickar endast `projectId` och exakt commit-SHA över en privat lokal
   Unix-socket till en sidecar i samma pod.
 - Executor hämtar endast den registrerade repo-/branch-kombinationen och kör
   den fasta recepten `npm ci` och `npm run build` i en kortlivad, begränsad
   Node-jobbmiljö.
-- Builder-image, namespace, CPU/minne/tidsgräns och tillåtna
-  projekt ligger i ägarinstallerad konfiguration — aldrig i Lyra-anrop,
-  projektdata eller repositorykod.
+- Builder-image, namespace, CPU/minne/tidsgräns och tillåtna projekt ligger i
+  ägarinstallerad konfiguration — aldrig i Lyra-anrop eller repositorykod.
 - En build i taget gäller fortsatt. Första steget returnerar endast
   normaliserad, innehållsfri buildstatus. Ett deploybart immutable artifact-id
   införs först tillsammans med en uttryckligt godkänd artifactkanal.
@@ -54,8 +54,11 @@ och OpenSSH då vägrar starta. Den får fortfarande inga capabilities,
 service-account-token, hostmount eller skrivbart rootfilsystem; själva
 repositorybuilden körs fortsatt som UID `10001` utan nyckelmount.
 
-Källträdet innehåller en ren owner-side factory för just detta Job-template och
-dess minimala RBAC-kontrakt. Den körs i en sidecar med en projicerad
+Källträdet innehåller en ren owner-side factory för detta fasta Job-template,
+en buildinventering och dess minimala RBAC-kontrakt. Inventeringen mappar ett
+registrerat projekt till canonical repo, tillåten branch, fast checkout-URL och
+separat deploy-key-referens. Att lägga till ett nytt repo är fortfarande ett
+ägargodkännande, men kräver ingen kodändring i Forge. Den körs i en sidecar med en projicerad
 Kubernetes-token; Forge-processen har varken token eller Kubernetes-klient.
 Första buildern är pinnad till Node 24.18.0 för `linux/amd64` och checkouten
 till en verifierad `alpine/git`-digest. Båda importeras lokalt till Nocco före

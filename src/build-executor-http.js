@@ -36,7 +36,7 @@ export function createBuildExecutorRequestHandler({ executor, projectResolver })
   return async (request, response) => {
     try {
       if (request.method === "GET" && request.url === "/healthz") return send(response, 200, { status: "ok" });
-      const statusMatch = request.url?.match(/^\/v1\/builds\/(forge-build-adesco-[a-f0-9]{12})$/);
+      const statusMatch = request.url?.match(/^\/v1\/builds\/(forge-build-[a-z0-9-]{1,63})$/);
       if (request.method === "GET" && statusMatch) {
         return send(response, 200, await executor.getBuildStatus({ operationId: statusMatch[1] }));
       }

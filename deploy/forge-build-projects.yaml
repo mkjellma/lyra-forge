@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: forge-build-projects
+  namespace: forge-system
+data:
+  build-projects.json: |
+    {
+      "projects": [
+        {
+          "projectId": "adesco-webb",
+          "repository": "https://github.com/mkjellma/adesco.git",
+          "allowedBranch": "main",
+          "buildProfile": "nextjs-npm",
+          "deployKeySecret": "adesco-github-deploy-key",
+          "githubKnownHostsConfigMap": "github-com-known-hosts"
+        }
+      ]
+    }

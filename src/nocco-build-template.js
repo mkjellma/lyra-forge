@@ -2,22 +2,14 @@ import { badRequest } from "./errors.js";
 import { assertCommitSha } from "./validation.js";
 
 const IMAGE_DIGEST = /^[a-z0-9][a-z0-9./_-]*@[sS][hH][aA]256:[a-f0-9]{64}$/;
-const ADESCO_POLICY = Object.freeze({
-  projectId: "adesco-webb",
-  namespace: "forge-build",
-  repository: "https://github.com/mkjellma/adesco.git",
-  checkoutRepository: "git@github.com:mkjellma/adesco.git",
-  deployKeySecret: "adesco-github-deploy-key",
-  githubKnownHostsConfigMap: "github-com-known-hosts",
-  branch: "main",
-  allowedBranch: "main",
-  buildProfile: "nextjs-npm",
-  activeDeadlineSeconds: 900,
-  ttlSecondsAfterFinished: 3600,
-  resources: Object.freeze({
-    requests: Object.freeze({ cpu: "250m", memory: "512Mi", "ephemeral-storage": "1Gi" }),
-    limits: Object.freeze({ cpu: "1", memory: "1536Mi", "ephemeral-storage": "2Gi" })
-  })
+const PROJECT_ID = /^[a-z][a-z0-9-]{1,62}$/;
+const BRANCH = /^[A-Za-z0-9][A-Za-z0-9._/-]{0,254}$/;
+const KUBERNETES_NAME = /^[a-z0-9]([-a-z0-9]*[a-z0-9])?$/;
+const FIXED_PROFILE = "nextjs-npm";
+const BUILD_NAMESPACE = "forge-build";
+const FIXED_RESOURCES = Object.freeze({
+  requests: Object.freeze({ cpu: "250m", memory: "512Mi", "ephemeral-storage": "1Gi" }),
+  limits: Object.freeze({ cpu: "1", memory: "1536Mi", "ephemeral-storage": "2Gi" })
 });
 
 const CHECKOUT_SCRIPT = [
@@ -35,9 +27,31 @@ const CHECKOUT_SCRIPT = [
 
 const BUILD_SCRIPT = "set -eu\nnpm ci\nnpm run build";
 
+function policyError() {
+  return badRequest("INVALID_BUILD_PROJECT_POLICY");
+}
+
 function ownerImage(value, code) {
   if (typeof value !== "string" || !IMAGE_DIGEST.test(value)) throw badRequest(code);
   return value;
+}
+
+function canonicalRepository(value) {
+  if (typeof value !== "string") throw policyError();
+  let url;
+  try {
+    url = new URL(value);
+  } catch {
+    throw policyError();
+  }
+  if (url.protocol !== "https:" || url.hostname !== "github.com" || url.username || url.password || url.search || url.hash || !/^\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\.git$/.test(url.pathname)) {
+    throw policyError();
+  }
+  return url.toString();
+}
+
+function checkoutRepository(repository) {
+  return `git@github.com:${new URL(repository).pathname.slice(1)}`;
 }
 
 function fixedSecurityContext() {
@@ -65,28 +79,72 @@ function checkoutSecurityContext() {
 }
 
 function resources() {
-  return {
-    requests: { ...ADESCO_POLICY.resources.requests },
-    limits: { ...ADESCO_POLICY.resources.limits }
-  };
+  return { requests: { ...FIXED_RESOURCES.requests }, limits: { ...FIXED_RESOURCES.limits } };
+}
+
+function exactKeys(value, keys) {
+  return Object.keys(value).length === keys.length && keys.every((key) => Object.hasOwn(value, key));
+}
+
+function validatePolicy(source) {
+  if (!source || typeof source !== "object" || Array.isArray(source) || !exactKeys(source, ["projectId", "repository", "allowedBranch", "buildProfile", "deployKeySecret", "githubKnownHostsConfigMap"])) {
+    throw policyError();
+  }
+  if (typeof source.projectId !== "string" || !PROJECT_ID.test(source.projectId) || typeof source.allowedBranch !== "string" || !BRANCH.test(source.allowedBranch) || source.buildProfile !== FIXED_PROFILE) {
+    throw policyError();
+  }
+  for (const field of ["deployKeySecret", "githubKnownHostsConfigMap"]) {
+    if (typeof source[field] !== "string" || source[field].length > 63 || !KUBERNETES_NAME.test(source[field])) throw policyError();
+  }
+  const repository = canonicalRepository(source.repository);
+  return Object.freeze({
+    projectId: source.projectId,
+    repository,
+    checkoutRepository: checkoutRepository(repository),
+    allowedBranch: source.allowedBranch,
+    buildProfile: source.buildProfile,
+    deployKeySecret: source.deployKeySecret,
+    githubKnownHostsConfigMap: source.githubKnownHostsConfigMap
+  });
 }
 
 /**
- * Owner-side factory for the only v0 build Job. It deliberately receives no
- * repository command, namespace, path, environment or resource data from
- * Forge or Lyra. Image digests are supplied only by a root-owned executor
- * bundle after an owner inventory has verified them.
+ * Owner-installed build inventory. Lyra can register a project, but only an
+ * entry here grants the executor a fixed checkout identity and build profile.
  */
-export function createAdescoNoccoBuildJob({ commitSha, checkoutImage, builderImage }) {
+export function loadNoccoBuildProjects(source) {
+  if (!source || typeof source !== "object" || Array.isArray(source) || !exactKeys(source, ["projects"]) || !Array.isArray(source.projects)) {
+    throw policyError();
+  }
+  const projects = new Map();
+  for (const candidate of source.projects) {
+    const policy = validatePolicy(candidate);
+    if (projects.has(policy.projectId)) throw policyError();
+    projects.set(policy.projectId, policy);
+  }
+  return projects;
+}
+
+export function buildOperationId(policy, commitSha) {
   const normalizedCommitSha = assertCommitSha(commitSha);
-  const jobName = `forge-build-adesco-${normalizedCommitSha.slice(0, 12)}`;
+  if (!policy || typeof policy.projectId !== "string") throw policyError();
+  return `forge-build-${policy.projectId.slice(0, 30)}-${normalizedCommitSha.slice(0, 12)}`;
+}
+
+/**
+ * A fixed v0 nextjs-npm Job. The owner inventory chooses the project and its
+ * key reference; neither Lyra nor repository code can submit template fields.
+ */
+export function createNoccoBuildJob({ policy, commitSha, checkoutImage, builderImage }) {
+  const normalizedCommitSha = assertCommitSha(commitSha);
+  const jobName = buildOperationId(policy, normalizedCommitSha);
   const images = {
     checkout: ownerImage(checkoutImage, "INVALID_CHECKOUT_IMAGE"),
     builder: ownerImage(builderImage, "INVALID_BUILDER_IMAGE")
   };
   const checkoutEnvironment = [
-    { name: "FORGE_CHECKOUT_REPOSITORY", value: ADESCO_POLICY.checkoutRepository },
-    { name: "FORGE_BRANCH", value: ADESCO_POLICY.branch },
+    { name: "FORGE_CHECKOUT_REPOSITORY", value: policy.checkoutRepository },
+    { name: "FORGE_BRANCH", value: policy.allowedBranch },
     { name: "FORGE_COMMIT_SHA", valueFrom: { fieldRef: { fieldPath: "metadata.labels['forge.lyra/commit']" } } },
     { name: "GIT_TERMINAL_PROMPT", value: "0" },
     { name: "GIT_CONFIG_NOSYSTEM", value: "1" },
@@ -95,31 +153,24 @@ export function createAdescoNoccoBuildJob({ commitSha, checkoutImage, builderIma
     { name: "GIT_CONFIG_KEY_0", value: "safe.directory" },
     { name: "GIT_CONFIG_VALUE_0", value: "/workspace" }
   ];
+  const labels = Object.freeze({
+    "app.kubernetes.io/name": "forge-build",
+    "forge.lyra/project": policy.projectId,
+    "forge.lyra/commit": normalizedCommitSha
+  });
 
   return Object.freeze({
     apiVersion: "batch/v1",
     kind: "Job",
-    metadata: Object.freeze({
-      name: jobName,
-      namespace: ADESCO_POLICY.namespace,
-      labels: Object.freeze({
-        "app.kubernetes.io/name": "forge-build",
-        "forge.lyra/project": ADESCO_POLICY.projectId,
-        "forge.lyra/commit": normalizedCommitSha
-      })
-    }),
+    metadata: Object.freeze({ name: jobName, namespace: BUILD_NAMESPACE, labels }),
     spec: Object.freeze({
       backoffLimit: 0,
       completions: 1,
       parallelism: 1,
-      activeDeadlineSeconds: ADESCO_POLICY.activeDeadlineSeconds,
-      ttlSecondsAfterFinished: ADESCO_POLICY.ttlSecondsAfterFinished,
+      activeDeadlineSeconds: 900,
+      ttlSecondsAfterFinished: 3600,
       template: Object.freeze({
-        metadata: Object.freeze({ labels: Object.freeze({
-          "app.kubernetes.io/name": "forge-build",
-          "forge.lyra/project": ADESCO_POLICY.projectId,
-          "forge.lyra/commit": normalizedCommitSha
-        }) }),
+        metadata: Object.freeze({ labels }),
         spec: Object.freeze({
           restartPolicy: "Never",
           serviceAccountName: "forge-build-job",
@@ -177,12 +228,12 @@ export function createAdescoNoccoBuildJob({ commitSha, checkoutImage, builderIma
             { name: "runtime-home", emptyDir: Object.freeze({ sizeLimit: "256Mi" }) },
             { name: "checkout-ssh", emptyDir: Object.freeze({ sizeLimit: "1Mi" }) },
             { name: "github-deploy-key", secret: Object.freeze({
-              secretName: ADESCO_POLICY.deployKeySecret,
+              secretName: policy.deployKeySecret,
               defaultMode: 288,
               items: Object.freeze([{ key: "id_ed25519", path: "id_ed25519" }])
             }) },
             { name: "github-known-hosts", configMap: Object.freeze({
-              name: ADESCO_POLICY.githubKnownHostsConfigMap,
+              name: policy.githubKnownHostsConfigMap,
               defaultMode: 292,
               items: Object.freeze([{ key: "known_hosts", path: "known_hosts" }])
             }) }
@@ -191,8 +242,4 @@ export function createAdescoNoccoBuildJob({ commitSha, checkoutImage, builderIma
       })
     })
   });
-}
-
-export function noccoBuildPolicy() {
-  return ADESCO_POLICY;
 }

@@ -38,8 +38,9 @@ V0 optimeras för en intern mini-PC-labbmiljö, inte för ett kluster:
 V0 har en control-plane-instans och återanvänder den redan ägarstyrda,
 enkel-nods k3s-motorn på Nocco för kortlivade, registrerade jobb. Forge
 installerar, uppgraderar eller administrerar inte k3s. Den första executorn
-har en statisk allowlist över projekt och buildprofiler; varken Lyra eller
-Forge får generell fjärrshell, `kubectl` eller container-socket till noden.
+läser en ägarstyrd buildinventering över projekt och buildprofiler; varken
+Lyra eller Forge får generell fjärrshell, `kubectl` eller container-socket till
+noden.
 
 Distribuerad state, automatisk nodupptäckt, korsnods-nätverk och delad
 artifactlagring introduceras först när ett faktiskt behov och nytt
