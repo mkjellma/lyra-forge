@@ -23,6 +23,7 @@ containrar av sig själv.
 - [Arbetssätt för agenter](AGENTS.md)
 - [ADR-0001: privat deploy-control-plane](docs/adr/0001-private-deploy-control-plane.md)
 - [ADR-0002: Nocco k3s build-executor](docs/adr/0002-nocco-k3s-build-executor.md)
+- [ADR-0003: privat OCI-artifactkanal](docs/adr/0003-private-oci-runtime-artifacts.md)
 - [Förslag 0001: verktygskedja för v0](docs/decisions/0001-v0-toolchain-proposal.md)
 - [Förslag 0002: historiskt Coolify-förslag](docs/decisions/0002-deploy-engine-proposal.md)
 

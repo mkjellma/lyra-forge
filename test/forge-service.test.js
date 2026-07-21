@@ -140,6 +140,29 @@ test("a pending project is rejected before GitHub or the builder can run", async
   assert.equal(buildCalls, 0);
 });
 
+test("managed artifact runtime väntar på digest innan exakt release blir aktiv", async () => {
+  const calls = [];
+  const deploymentAdapter = {
+    producesArtifact: true,
+    async startDeploy(_project, release) {
+      calls.push(["start", release.artifactId]);
+      return { deploymentId: "forge-adesco-release-1", commitSha: release.commitSha };
+    },
+    async getDeploymentStatus(_request) {
+      calls.push(["status"]);
+      return { deploymentId: "forge-adesco-release-1", commitSha: SHA_A, artifactId: `sha256:${"d".repeat(64)}`, state: "succeeded" };
+    },
+    async getRuntimeStatus() { return { state: "running", activeCommitSha: SHA_A }; },
+    async restart() { return { deploymentId: "restart" }; },
+    async rollback() { throw new Error("not used"); }
+  };
+  const { forge } = makeForge({ deploymentAdapter, runtimeExecutor: deploymentAdapter });
+  const result = await forge.requestDeploy("adesco", SHA_A);
+  assert.equal(result.outcome, "succeeded");
+  assert.equal(result.release.artifactId, `sha256:${"d".repeat(64)}`);
+  assert.deepEqual(calls, [["start", null], ["status"]]);
+});
+
 test("build-only verification accepts an exact SHA without entering deploy, health or runtime", async () => {
   let deployBuilds = 0;
   let runtimeActivations = 0;

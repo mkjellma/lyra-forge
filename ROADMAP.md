@@ -12,8 +12,9 @@
    dess driftkostnad motiverad.
 3. Koppla build-jobbklienten till exakt commit-SHA och normaliserad buildstatus
    för en ägarinventerad projektpost. Adesco har verifierat första vägen.
-   Detta är inte en runtime-deploy. Immutable artifact-id kommer först med en
-   separat, godkänd artifactkanal.
+4. Runtimekärnan använder en intern OCI-artifactkanal, privat ClusterIP-service
+   och kandidatbaserad health/rollback. Den är lokalt testad men ännu inte
+   aktiverad på Nocco.
 
 ## Första verkliga testet
 
@@ -21,8 +22,8 @@
    read-only deploy key.
 2. Lägg till nästa projekt i både Forge-registret och den ägarstyrda
    buildinventeringen; det ska inte kräva någon kodändring.
-3. Besluta separat om artifact-publicering, runtime-deploy, health check och
-   rollback till föregående fungerande release.
+3. Aktivera den godkända artifact- och runtimevägen på Nocco med snapshot,
+   pinnade registry/ORAS-image-digests och en explicit ägarrelease.
 
 När detta fungerar bygger vi vidare på Forge-API:t som Lyra använder för
 projekt, status, deploy, paus, restart och rollback. Fler mini-PC:er kan då

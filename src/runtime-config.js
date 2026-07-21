@@ -21,6 +21,9 @@ export function loadRuntimeConfig(environment = process.env) {
   const apiToken = requiredString(environment.FORGE_API_TOKEN, "FORGE_API_TOKEN_REQUIRED");
   const lyraReadToken = optionalString(environment.FORGE_LYRA_READ_TOKEN, "FORGE_LYRA_READ_TOKEN_INVALID");
   const buildExecutorSocket = optionalString(environment.FORGE_BUILD_EXECUTOR_SOCKET, "FORGE_BUILD_EXECUTOR_SOCKET_INVALID");
+  const runtimeExecutorSocket = optionalString(environment.FORGE_RUNTIME_EXECUTOR_SOCKET, "FORGE_RUNTIME_EXECUTOR_SOCKET_INVALID");
+  const runtimeProjectsPath = optionalString(environment.FORGE_RUNTIME_PROJECTS_PATH, "FORGE_RUNTIME_PROJECTS_PATH_INVALID");
+  if ((runtimeExecutorSocket === undefined) !== (runtimeProjectsPath === undefined)) throw new Error("FORGE_RUNTIME_EXECUTOR_CONFIG_INCOMPLETE");
   if (lyraReadToken === apiToken) throw new Error("FORGE_LYRA_READ_TOKEN_MUST_DIFFER");
 
   return Object.freeze({
@@ -28,6 +31,7 @@ export function loadRuntimeConfig(environment = process.env) {
     bindHost,
     lyraReadToken,
     ...(buildExecutorSocket === undefined ? {} : { buildExecutorSocket }),
+    ...(runtimeExecutorSocket === undefined ? {} : { runtimeExecutorSocket, runtimeProjectsPath }),
     port: port(environment.FORGE_PORT),
     statePath: environment.FORGE_STATE_PATH ?? "data/forge-state.json"
   });

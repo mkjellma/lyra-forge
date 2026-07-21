@@ -168,12 +168,22 @@ export class ForgeService {
       throw conflict("DEPLOYMENT_IN_PROGRESS");
     }
 
-    try {
-      await this.gitProvider.assertAllowedCommit(project, normalizedSha);
-    } catch (error) {
-      this.audit.append({ action: "deploy", projectId, actorType, outcome: "rejected", commitSha: normalizedSha, errorCategory: errorCategory(error, "GIT_VALIDATION_FAILED") });
-      await this.persist();
-      throw error;
+    // A managed artifact executor verifies the exact SHA during its fixed
+    // checkout Job. It cannot accept a repository or branch from this call.
+    const managedArtifactBuild = this.deploymentAdapter?.producesArtifact === true;
+    if (!managedArtifactBuild) {
+      try {
+        await this.gitProvider.assertAllowedCommit(project, normalizedSha);
+      } catch (error) {
+        this.audit.append({ action: "deploy", projectId, actorType, outcome: "rejected", commitSha: normalizedSha, errorCategory: errorCategory(error, "GIT_VALIDATION_FAILED") });
+        await this.persist();
+        throw error;
+      }
+    }
+
+    if (managedArtifactBuild) {
+      const release = this.releases.create({ projectId, commitSha: normalizedSha, artifactId: null });
+      return this.startManagedDeploy(project, release, actorType, "deploy");
     }
 
     let build;
@@ -310,6 +320,9 @@ export class ForgeService {
     if (!deploymentId) throw conflict("DEPLOYMENT_PROTOCOL_VIOLATION");
 
     const status = await this.deploymentAdapter.getDeploymentStatus({ project, release, deploymentId });
+    if (status?.artifactId !== undefined && status.artifactId !== null && release.artifactId === null) {
+      this.releases.setArtifactId(release.releaseId, immutableArtifact(status.artifactId));
+    }
     if (status.state === "pending") return;
     if (status.state === "failed") {
       this.releases.record(release.releaseId, "failed", "DEPLOYMENT_FAILED");
@@ -317,7 +330,7 @@ export class ForgeService {
       await this.persist();
       return;
     }
-    if (status.state !== "succeeded") throw conflict("DEPLOYMENT_PROTOCOL_VIOLATION");
+    if (status.state !== "succeeded" || (this.deploymentAdapter.producesArtifact === true && this.releases.getSummary(release.releaseId).artifactId === null)) throw conflict("DEPLOYMENT_PROTOCOL_VIOLATION");
 
     const priorActive = this.releases.getActive(project.projectId);
     if (priorActive) {

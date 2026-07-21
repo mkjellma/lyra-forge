@@ -57,6 +57,13 @@ export class ProjectRegistry {
     this.paused.set(projectId, paused);
   }
 
+  setRuntimeBinding(projectId, runtimeBinding) {
+    const current = this.get(projectId);
+    const candidate = validateProject({ ...current, runtimeBinding });
+    this.projects.set(projectId, candidate);
+    return candidate;
+  }
+
   exportPauseState() {
     return Object.fromEntries(this.paused);
   }
@@ -80,7 +87,7 @@ export class ReleaseStore {
     if (state) this.restore(state);
   }
 
-  create({ projectId, commitSha, artifactId, operation = "deploy", deploymentId = null }) {
+  create({ projectId, commitSha, artifactId = null, operation = "deploy", deploymentId = null }) {
     if (operation !== "deploy" && operation !== "rollback") {
       throw badRequest("INVALID_RELEASE_OPERATION");
     }
@@ -103,6 +110,12 @@ export class ReleaseStore {
     const release = this.getRecord(releaseId);
     if (release.deploymentId !== null || typeof deploymentId !== "string" || deploymentId.length === 0) throw badRequest("INVALID_DEPLOYMENT_ID");
     this.records.set(releaseId, Object.freeze({ ...release, deploymentId }));
+  }
+
+  setArtifactId(releaseId, artifactId) {
+    const release = this.getRecord(releaseId);
+    if (release.artifactId !== null || typeof artifactId !== "string" || !/^sha256:[a-f0-9]{64}$/i.test(artifactId)) throw badRequest("INVALID_ARTIFACT_ID");
+    this.records.set(releaseId, Object.freeze({ ...release, artifactId: artifactId.toLowerCase() }));
   }
 
   record(releaseId, state, category = null) {
@@ -164,7 +177,7 @@ export class ReleaseStore {
       throw badRequest("INVALID_PERSISTED_STATE");
     }
     for (const record of state.records) {
-      if (!record || typeof record.releaseId !== "string" || typeof record.projectId !== "string" || typeof record.commitSha !== "string" || typeof record.artifactId !== "string" || (record.deploymentId !== undefined && record.deploymentId !== null && typeof record.deploymentId !== "string") || typeof record.createdAt !== "string" || (record.operation !== undefined && record.operation !== "deploy" && record.operation !== "rollback")) {
+      if (!record || typeof record.releaseId !== "string" || typeof record.projectId !== "string" || typeof record.commitSha !== "string" || (record.artifactId !== null && typeof record.artifactId !== "string") || (record.deploymentId !== undefined && record.deploymentId !== null && typeof record.deploymentId !== "string") || typeof record.createdAt !== "string" || (record.operation !== undefined && record.operation !== "deploy" && record.operation !== "rollback")) {
         throw badRequest("INVALID_PERSISTED_STATE");
       }
       this.records.set(record.releaseId, Object.freeze({ ...record, operation: record.operation ?? "deploy", deploymentId: record.deploymentId ?? null }));

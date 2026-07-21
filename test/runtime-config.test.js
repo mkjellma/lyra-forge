@@ -43,3 +43,13 @@ test("runtimekonfigurationen kan aktivera enbart den lokala executor-socketen", 
   const config = loadRuntimeConfig({ FORGE_API_TOKEN: "admin", FORGE_BUILD_EXECUTOR_SOCKET: "/var/run/forge-executor/executor.sock" });
   assert.equal(config.buildExecutorSocket, "/var/run/forge-executor/executor.sock");
 });
+
+test("runtimevägen kräver både privat socket och ägarinventering", () => {
+  assert.throws(
+    () => loadRuntimeConfig({ FORGE_API_TOKEN: "admin", FORGE_RUNTIME_EXECUTOR_SOCKET: "/var/run/forge-executor/runtime.sock" }),
+    { message: "FORGE_RUNTIME_EXECUTOR_CONFIG_INCOMPLETE" }
+  );
+  const config = loadRuntimeConfig({ FORGE_API_TOKEN: "admin", FORGE_RUNTIME_EXECUTOR_SOCKET: "/var/run/forge-executor/runtime.sock", FORGE_RUNTIME_PROJECTS_PATH: "/etc/forge-runtime/projects.json" });
+  assert.equal(config.runtimeExecutorSocket, "/var/run/forge-executor/runtime.sock");
+  assert.equal(config.runtimeProjectsPath, "/etc/forge-runtime/projects.json");
+});

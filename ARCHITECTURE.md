@@ -55,9 +55,9 @@ artifactlagring introduceras först när ett faktiskt behov och nytt
 3. En deploypolicy eller en API-begäran från Lyra väljer en kandidat bland
    dessa commits. Forge låser valet till en exakt SHA.
 4. Forge skickar SHA:n till en kortlivad, isolerad build-jobbprofil. Den
-   skapar en immutable artifact märkt med projekt-id och commit-SHA samt
-   sparar release-metadata. Profilen är ägarinstallerad, inte
-   repository-supplied kod eller kommando.
+   publicerar en immutable OCI-artifact i en intern registry och sparar
+   registry:ns manifest-digest som release-metadata. Profilen är
+   ägarinstallerad, inte repository-supplied kod eller kommando.
 5. Forge startar kandidaten isolerat och kör dess fördefinierade interna health
    check.
 6. Vid godkänd check blir kandidaten aktiv. Föregående friska release behålls.
@@ -102,7 +102,7 @@ Varje releasepost har minst:
 - aktiv/föregående/avbruten status
 - länkning till föregående friska release
 
-Artifacts och metadata är immutable efter att releasen skapats. Retention och
+Artifacts och metadata är immutable efter att releasen har byggts. Retention och
 eventuell radering bestäms senare av ägaren.
 
 V0:s lokala state lagrar releasehändelser, aktiv release, deploypaus och
