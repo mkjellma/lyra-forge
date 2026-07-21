@@ -49,7 +49,7 @@ enskilda projekt.
 
 | Fas | Kontrakt |
 | --- | --- |
-| Checkout | exakt SHA från registrerad `main` |
+| Checkout | exakt SHA från registrerad `main`, via en unik read-only GitHub SSH deploy key |
 | Install | `npm ci` från versionslåst `package-lock.json` |
 | Gate | `npm run build` |
 | Resultat | innehållsfri buildstatus för exakt SHA; ingen artifactkanal eller registry i detta steg |
@@ -75,7 +75,7 @@ enskilda projekt.
 ## Ägarbeslut för nästa mål
 
 - `manual` är godkänd för första piloten.
-- En riktig GitHub-pollning behöver ett separat credentialbeslut endast om
-  repot inte är publikt.
+- För den privata build-checkouten används en unik read-only deploy key för
+  just Adesco. Den ersätter inte någon framtida pollningscredential.
 - Första lyckade build och varje senare runtime-/publiceringssteg verifieras
   mot exakt commit-SHA innan någon deploy kan begäras.

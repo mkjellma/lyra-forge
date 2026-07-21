@@ -42,8 +42,10 @@ Först införs en enda build-only executor för den registrerade profilen
 - För labbpiloten används en minimal executoridentitet med endast `create` och
   `get` för Jobs, plus en fast, pinnad template: inga fria images/kommandon,
   ingen privileged-/host-åtkomst, ingen service-account-token i buildjobbet
-  och fasta resurs-/deadlinegränser. En admission-policy är senare härdning,
-  inte ett krav för denna enda ägarstyrda pilot.
+  och fasta resurs-/deadlinegränser. När det privata Adesco-repot läses med
+  deploy key ska en liten admission-policy samtidigt låsa just denna template,
+  dess två pinnade images och den enda läsnyckelmounten. RBAC kan inte själv
+  begränsa Job-fält.
 
 Källträdet innehåller en ren owner-side factory för just detta Job-template och
 dess minimala RBAC-kontrakt. Den körs i en sidecar med en projicerad
@@ -65,8 +67,12 @@ ingen publik ingress och ändrar ingen domän.
 Forge får en konkret och liten väg till verifierade builds utan att en
 projektägd Dockerfile eller generell CI-motor införs. Adesco kan senare få en
 egen runtime/publiceringsdesign. En intern registry, artifactkanal, runtime-Deployment,
-GitHub-credential, automatisk deploy, andra buildprofiler och publik ingress
-ligger utanför detta beslut och kräver separata ägarbeslut.
+automatisk deploy, andra buildprofiler och publik ingress ligger utanför detta
+beslut och kräver separata ägarbeslut. Adescos läsnyckel är ett separat,
+repo-bundet ägarbeslut: privatnyckeln finns bara i ett Secret i `forge-build`,
+mountas läsbart endast av checkout-initcontainern och blir aldrig Forge-state,
+miljövariabel eller buildcontainer-data. GitHubs verifierade host key ligger
+separat i en ConfigMap och SSH kör utan interaktiv eller HTTPS-fallback.
 
 Före host-aktivering tas en state-/manifest-snapshot. Rollback återställer
 föregående Forge-version och tar bort endast den nya executorbehörigheten;

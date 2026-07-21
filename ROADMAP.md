@@ -7,7 +7,8 @@
    inte k3s.
 2. Skapa minsta namespacade Job-rättighet och fast Job-template för den fasta
    `nextjs-npm`-profilen. Lyra och Forge får aldrig `kubectl`, shell eller
-   cluster-admin. Admission är senare härdning om piloten motiverar den.
+   cluster-admin. Om en build får använda en credential måste en liten
+   admission-policy låsa dess exakta Job-template.
 3. Koppla build-jobbklienten till exakt commit-SHA och normaliserad buildstatus
    för Adesco. Detta är inte en runtime-deploy. Immutable artifact-id kommer
    först med en separat, godkänd artifactkanal.

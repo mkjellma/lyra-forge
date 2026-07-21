@@ -23,10 +23,25 @@ test("Nocco-buildern kan bara skapa Adescos fasta, SHA-pinnade nextjs-npm-jobb",
     { name: "TMPDIR", value: "/tmp" }
   ]);
   assert.equal(job.spec.template.spec.containers[0].securityContext.allowPrivilegeEscalation, false);
+  assert.deepEqual(job.spec.template.spec.initContainers[0].env.slice(0, 3), [
+    { name: "FORGE_CHECKOUT_REPOSITORY", value: "git@github.com:mkjellma/adesco.git" },
+    { name: "FORGE_BRANCH", value: "main" },
+    { name: "FORGE_COMMIT_SHA", valueFrom: { fieldRef: { fieldPath: "metadata.labels['forge.lyra/commit']" } } }
+  ]);
+  assert.match(job.spec.template.spec.initContainers[0].env.find((entry) => entry.name === "GIT_SSH_COMMAND").value, /StrictHostKeyChecking=yes/);
+  assert.deepEqual(job.spec.template.spec.initContainers[0].volumeMounts.slice(-3), [
+    { name: "github-deploy-key", mountPath: "/var/run/forge-git-key", readOnly: true },
+    { name: "github-known-hosts", mountPath: "/var/run/forge-git-known-hosts", readOnly: true },
+    { name: "checkout-ssh", mountPath: "/var/run/forge-git" }
+  ]);
+  assert.equal(job.spec.template.spec.containers[0].volumeMounts.some((mount) => mount.name.includes("github") || mount.name === "checkout-ssh"), false);
   assert.deepEqual(job.spec.template.spec.volumes, [
     { name: "workspace", emptyDir: { sizeLimit: "2Gi" } },
     { name: "runtime-tmp", emptyDir: { sizeLimit: "256Mi" } },
-    { name: "runtime-home", emptyDir: { sizeLimit: "256Mi" } }
+    { name: "runtime-home", emptyDir: { sizeLimit: "256Mi" } },
+    { name: "checkout-ssh", emptyDir: { sizeLimit: "1Mi" } },
+    { name: "github-deploy-key", secret: { secretName: "adesco-github-deploy-key", defaultMode: 288, items: [{ key: "id_ed25519", path: "id_ed25519" }] } },
+    { name: "github-known-hosts", configMap: { name: "github-com-known-hosts", defaultMode: 292, items: [{ key: "known_hosts", path: "known_hosts" }] } }
   ]);
   assert.match(job.spec.template.spec.initContainers[0].args[0], /refs\/forge\/allowed/);
   assert.deepEqual(job.spec.template.spec.initContainers[0].env.slice(-3), [
@@ -40,6 +55,9 @@ test("Nocco-buildern kan bara skapa Adescos fasta, SHA-pinnade nextjs-npm-jobb",
     projectId: "adesco-webb",
     namespace: "forge-build",
     repository: "https://github.com/mkjellma/adesco.git",
+    checkoutRepository: "git@github.com:mkjellma/adesco.git",
+    deployKeySecret: "adesco-github-deploy-key",
+    githubKnownHostsConfigMap: "github-com-known-hosts",
     branch: "main",
     allowedBranch: "main",
     buildProfile: "nextjs-npm",

@@ -6,6 +6,9 @@ const ADESCO_POLICY = Object.freeze({
   projectId: "adesco-webb",
   namespace: "forge-build",
   repository: "https://github.com/mkjellma/adesco.git",
+  checkoutRepository: "git@github.com:mkjellma/adesco.git",
+  deployKeySecret: "adesco-github-deploy-key",
+  githubKnownHostsConfigMap: "github-com-known-hosts",
   branch: "main",
   allowedBranch: "main",
   buildProfile: "nextjs-npm",
@@ -19,8 +22,9 @@ const ADESCO_POLICY = Object.freeze({
 
 const CHECKOUT_SCRIPT = [
   "set -eu",
+  "install -m 600 /var/run/forge-git-key/id_ed25519 /var/run/forge-git/id_ed25519",
   "git init /workspace",
-  "git -C /workspace remote add origin \"$FORGE_REPOSITORY\"",
+  "git -C /workspace remote add origin \"$FORGE_CHECKOUT_REPOSITORY\"",
   "git -C /workspace fetch --no-tags origin \"$FORGE_BRANCH\"",
   "git -C /workspace update-ref refs/forge/allowed FETCH_HEAD",
   "git -C /workspace fetch --no-tags origin \"$FORGE_COMMIT_SHA\"",
@@ -69,10 +73,12 @@ export function createAdescoNoccoBuildJob({ commitSha, checkoutImage, builderIma
     builder: ownerImage(builderImage, "INVALID_BUILDER_IMAGE")
   };
   const checkoutEnvironment = [
-    { name: "FORGE_REPOSITORY", value: ADESCO_POLICY.repository },
+    { name: "FORGE_CHECKOUT_REPOSITORY", value: ADESCO_POLICY.checkoutRepository },
     { name: "FORGE_BRANCH", value: ADESCO_POLICY.branch },
-    { name: "FORGE_COMMIT_SHA", value: normalizedCommitSha },
+    { name: "FORGE_COMMIT_SHA", valueFrom: { fieldRef: { fieldPath: "metadata.labels['forge.lyra/commit']" } } },
     { name: "GIT_TERMINAL_PROMPT", value: "0" },
+    { name: "GIT_CONFIG_NOSYSTEM", value: "1" },
+    { name: "GIT_SSH_COMMAND", value: "ssh -F /dev/null -i /var/run/forge-git/id_ed25519 -o BatchMode=yes -o IdentitiesOnly=yes -o PasswordAuthentication=no -o StrictHostKeyChecking=yes -o UserKnownHostsFile=/var/run/forge-git-known-hosts/known_hosts -o GlobalKnownHostsFile=/dev/null" },
     { name: "GIT_CONFIG_COUNT", value: "1" },
     { name: "GIT_CONFIG_KEY_0", value: "safe.directory" },
     { name: "GIT_CONFIG_VALUE_0", value: "/workspace" }
@@ -123,7 +129,10 @@ export function createAdescoNoccoBuildJob({ commitSha, checkoutImage, builderIma
             volumeMounts: Object.freeze([
               { name: "workspace", mountPath: "/workspace" },
               { name: "runtime-tmp", mountPath: "/tmp" },
-              { name: "runtime-home", mountPath: "/home/forge" }
+              { name: "runtime-home", mountPath: "/home/forge" },
+              { name: "github-deploy-key", mountPath: "/var/run/forge-git-key", readOnly: true },
+              { name: "github-known-hosts", mountPath: "/var/run/forge-git-known-hosts", readOnly: true },
+              { name: "checkout-ssh", mountPath: "/var/run/forge-git" }
             ])
           })]),
           containers: Object.freeze([Object.freeze({
@@ -149,7 +158,18 @@ export function createAdescoNoccoBuildJob({ commitSha, checkoutImage, builderIma
           volumes: Object.freeze([
             { name: "workspace", emptyDir: Object.freeze({ sizeLimit: "2Gi" }) },
             { name: "runtime-tmp", emptyDir: Object.freeze({ sizeLimit: "256Mi" }) },
-            { name: "runtime-home", emptyDir: Object.freeze({ sizeLimit: "256Mi" }) }
+            { name: "runtime-home", emptyDir: Object.freeze({ sizeLimit: "256Mi" }) },
+            { name: "checkout-ssh", emptyDir: Object.freeze({ sizeLimit: "1Mi" }) },
+            { name: "github-deploy-key", secret: Object.freeze({
+              secretName: ADESCO_POLICY.deployKeySecret,
+              defaultMode: 288,
+              items: Object.freeze([{ key: "id_ed25519", path: "id_ed25519" }])
+            }) },
+            { name: "github-known-hosts", configMap: Object.freeze({
+              name: ADESCO_POLICY.githubKnownHostsConfigMap,
+              defaultMode: 292,
+              items: Object.freeze([{ key: "known_hosts", path: "known_hosts" }])
+            }) }
           ])
         })
       })
