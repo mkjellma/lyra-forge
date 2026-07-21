@@ -50,3 +50,13 @@ test("en misslyckad artifactbuild växlar aldrig den interna tjänsten", async (
   assert.deepEqual(await executor.getReleaseStatus({ project, release, operationId: started.operationId }), { operationId: started.operationId, commitSha: SHA_A, artifactId: null, state: "failed" });
   assert.deepEqual(calls.map(([operation]) => operation), ["job"]);
 });
+
+test("ett provisionerat projekt utan första runtime-Service rapporterar pending", async () => {
+  const { executor } = makeExecutor();
+  executor.runtimeClient.getService = async () => {
+    const error = new Error("not found");
+    error.code = "RUNTIME_RESOURCE_NOT_FOUND";
+    throw error;
+  };
+  assert.deepEqual(await executor.getWorkload(project), { state: "pending", activeCommitSha: null });
+});

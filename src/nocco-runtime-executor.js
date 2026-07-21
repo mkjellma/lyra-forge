@@ -123,7 +123,13 @@ export class NoccoRuntimeExecutor {
 
   async getWorkload(project) {
     const policy = allowed(project, this.runtimePolicies.get(project?.projectId));
-    const service = await this.runtimeClient.getService({ namespace: policy.runtimeBinding.namespace, name: policy.runtimeBinding.workloadName });
+    let service;
+    try {
+      service = await this.runtimeClient.getService({ namespace: policy.runtimeBinding.namespace, name: policy.runtimeBinding.workloadName });
+    } catch (error) {
+      if (error?.code === "RUNTIME_RESOURCE_NOT_FOUND") return Object.freeze({ state: "pending", activeCommitSha: null });
+      throw error;
+    }
     const releaseId = service?.spec?.selector?.["forge.lyra/release"];
     if (typeof releaseId !== "string" || releaseId === "none") return Object.freeze({ state: "pending", activeCommitSha: null });
     const deployment = await this.runtimeClient.getDeployment({ namespace: policy.runtimeBinding.namespace, name: runtimeOperationId(policy, releaseId) });
