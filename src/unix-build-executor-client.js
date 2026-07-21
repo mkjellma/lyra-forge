@@ -6,6 +6,12 @@ function protocolError() {
   return conflict("BUILD_EXECUTOR_PROTOCOL_VIOLATION");
 }
 
+function executorError(value) {
+  const code = value?.error?.code;
+  if (typeof code === "string" && /^[A-Z0-9_]{1,64}$/.test(code)) return conflict(code);
+  return protocolError();
+}
+
 function exactKeys(value, expected) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const keys = Object.keys(value).sort();
@@ -50,6 +56,7 @@ export class UnixBuildExecutorClient {
         let parsed;
         try {
           parsed = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+          if (response.statusCode !== 200 && response.statusCode !== 202) throw executorError(parsed);
           resolve(validate(response, parsed));
         } catch (error) {
           reject(error?.code ? error : protocolError());

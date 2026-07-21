@@ -86,6 +86,37 @@ test("Kubernetes Job-klienten skickar endast Jobbet till dess namngivna namespac
   assert.equal(requests[0].options.headers.authorization, "Bearer token");
 });
 
+test("Kubernetes Job-klienten normaliserar API-avslag utan att läcka response-innehåll", async () => {
+  const client = new KubernetesJobClient({
+    apiOrigin: "https://kubernetes.default.svc:443",
+    token: "token",
+    fetchFn: async () => ({ status: 422, ok: false })
+  });
+  await assert.rejects(
+    () => client.createJob({ metadata: { name: "forge-build-adesco-aaaaaaaaaaaa", namespace: "forge-build" } }),
+    { code: "KUBERNETES_JOB_REJECTED" }
+  );
+});
+
+test("Forge-klienten bevarar executorens normaliserade felkod", async () => {
+  const client = new UnixBuildExecutorClient({
+    socketPath: "/var/run/forge-executor/executor.sock",
+    requestFn(options, handler) {
+      const request = new EventEmitter();
+      request.end = () => {
+        const response = Readable.from([Buffer.from(JSON.stringify({ error: { code: "KUBERNETES_JOB_REJECTED" } }))]);
+        response.statusCode = 409;
+        queueMicrotask(() => handler(response));
+      };
+      return request;
+    }
+  });
+  await assert.rejects(
+    () => client.startBuild({ project: { projectId: "adesco-webb" }, commitSha: SHA_A }),
+    { code: "KUBERNETES_JOB_REJECTED" }
+  );
+});
+
 test("executorn rapporterar bara normaliserad Job-status", async () => {
   const executor = new NoccoBuildExecutor({
     checkoutImage: CHECKOUT_IMAGE,

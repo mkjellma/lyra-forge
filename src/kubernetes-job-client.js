@@ -4,6 +4,13 @@ function apiError() {
   return conflict("KUBERNETES_JOB_API_UNAVAILABLE");
 }
 
+function apiStatusError(status) {
+  if (status === 401) return conflict("KUBERNETES_JOB_AUTH_FAILED");
+  if (status === 403) return conflict("KUBERNETES_JOB_FORBIDDEN");
+  if (status === 422) return conflict("KUBERNETES_JOB_REJECTED");
+  return apiError();
+}
+
 /**
  * Tiny Kubernetes boundary used only by the executor Deployment. Forge's
  * control-plane does not construct this client or receive its token.
@@ -37,7 +44,7 @@ export class KubernetesJobClient {
       throw apiError();
     }
     if (response.status === 409) return Object.freeze({ state: "exists", name });
-    if (!response.ok) throw apiError();
+    if (!response.ok) throw apiStatusError(response.status);
     let created;
     try {
       created = await response.json();
@@ -60,7 +67,7 @@ export class KubernetesJobClient {
       throw apiError();
     }
     if (response.status === 404) throw notFound("BUILD_NOT_FOUND");
-    if (!response.ok) throw apiError();
+    if (!response.ok) throw apiStatusError(response.status);
     let job;
     try {
       job = await response.json();
