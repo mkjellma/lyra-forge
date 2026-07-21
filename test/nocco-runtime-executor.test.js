@@ -9,7 +9,7 @@ const CHECKOUT = "docker.io/alpine/git@sha256:5e1543841d987081a1e0e37305039b2bb9
 const NODE = "docker.io/library/node@sha256:4ba75f835bb8802193e4c114572113d4b26f95f6f094f4b5229d2a77773e0afc";
 const ORAS = "docker.io/orasproject/oras@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 const DIGEST = `sha256:${"c".repeat(64)}`;
-const project = { ...exampleProject({ projectId: "adesco-webb", repository: "https://github.com/mkjellma/adesco.git", runtimeBinding: { kind: "kubernetes", namespace: "forge-runtime", workloadName: "forge-adesco-webb" } }), healthCheck: { path: "/healthz", timeoutMs: 3000 } };
+const project = { ...exampleProject({ projectId: "adesco-webb", repository: "https://github.com/mkjellma/adesco.git", runtimeBinding: { kind: "kubernetes", namespace: "forge-runtime", workloadName: "adesco-webb" } }), healthCheck: { path: "/healthz", timeoutMs: 3000 } };
 const buildPolicies = loadNoccoBuildProjects({ projects: [{ projectId: "adesco-webb", repository: project.repository, allowedBranch: "main", buildProfile: "nextjs-npm", deployKeySecret: "adesco-github-deploy-key", githubKnownHostsConfigMap: "github-com-known-hosts" }] });
 const runtimePolicies = loadNoccoRuntimeProjects({ projects: [{ projectId: "adesco-webb", repository: project.repository, allowedBranch: "main", buildProfile: "nextjs-npm", runtimeProfile: "private-http", registryRepository: "forge/adesco-webb" }] });
 

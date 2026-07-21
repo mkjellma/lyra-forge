@@ -29,7 +29,7 @@ const runtimeProjects = loadNoccoRuntimeProjects({ projects: [{
 
 test("runtimeinventeringen ger en fast intern binding utan credentials", () => {
   const policy = runtimeProjects.get("adesco-webb");
-  assert.deepEqual(policy.runtimeBinding, { kind: "kubernetes", namespace: "forge-runtime", workloadName: "forge-adesco-webb" });
+  assert.deepEqual(policy.runtimeBinding, { kind: "kubernetes", namespace: "forge-runtime", workloadName: "adesco-webb" });
   assert.equal(Object.hasOwn(policy, "deployKeySecret"), false);
   assert.throws(() => loadNoccoRuntimeProjects({ projects: [{
     projectId: "adesco-webb", repository: "https://github.com/mkjellma/adesco.git", allowedBranch: "main",

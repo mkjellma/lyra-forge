@@ -9,7 +9,7 @@ test("ägarinventeringen kan provisionera ett matchande registrerat projekt utan
     buildProfile: "nextjs-npm", runtimeProfile: "private-http", registryRepository: "forge/adesco"
   }] });
   assert.deepEqual(await provisioner.provision(exampleProject({ runtimeBinding: null })), {
-    runtimeBinding: { kind: "kubernetes", namespace: "forge-runtime", workloadName: "forge-adesco" }
+    runtimeBinding: { kind: "kubernetes", namespace: "forge-runtime", workloadName: "adesco" }
   });
   assert.deepEqual(await provisioner.provision(exampleProject({ repository: "https://github.com/example/other.git", runtimeBinding: null })), { runtimeBinding: null });
 });

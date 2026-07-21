@@ -83,7 +83,7 @@ export function loadNoccoRuntimeProjects(source) {
       buildProfile: candidate.buildProfile,
       runtimeProfile: candidate.runtimeProfile,
       registryRepository: candidate.registryRepository,
-      runtimeBinding: Object.freeze({ kind: "kubernetes", namespace: RUNTIME_NAMESPACE, workloadName: `forge-${candidate.projectId.slice(0, 57)}` })
+      runtimeBinding: Object.freeze({ kind: "kubernetes", namespace: RUNTIME_NAMESPACE, workloadName: candidate.projectId })
     });
     if (projects.has(policy.projectId)) throw policyError();
     projects.set(policy.projectId, policy);
