@@ -52,6 +52,18 @@ function fixedSecurityContext() {
   };
 }
 
+function checkoutSecurityContext() {
+  return {
+    allowPrivilegeEscalation: false,
+    capabilities: { drop: ["ALL"] },
+    readOnlyRootFilesystem: true,
+    runAsNonRoot: false,
+    runAsUser: 0,
+    runAsGroup: 0,
+    seccompProfile: { type: "RuntimeDefault" }
+  };
+}
+
 function resources() {
   return {
     requests: { ...ADESCO_POLICY.resources.requests },
@@ -127,7 +139,7 @@ export function createAdescoNoccoBuildJob({ commitSha, checkoutImage, builderIma
             args: Object.freeze([CHECKOUT_SCRIPT]),
             env: Object.freeze(checkoutEnvironment.map((entry) => Object.freeze({ ...entry }))),
             resources: Object.freeze(resources()),
-            securityContext: Object.freeze(fixedSecurityContext()),
+            securityContext: Object.freeze(checkoutSecurityContext()),
             volumeMounts: Object.freeze([
               { name: "workspace", mountPath: "/workspace" },
               { name: "runtime-tmp", mountPath: "/tmp" },

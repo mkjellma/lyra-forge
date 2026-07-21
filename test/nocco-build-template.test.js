@@ -16,6 +16,8 @@ test("Nocco-buildern kan bara skapa Adescos fasta, SHA-pinnade nextjs-npm-jobb",
   assert.equal(job.spec.template.spec.automountServiceAccountToken, false);
   assert.equal(job.spec.template.spec.initContainers[0].image, CHECKOUT_IMAGE);
   assert.equal(job.spec.template.spec.containers[0].image, BUILDER_IMAGE);
+  assert.equal(job.spec.template.spec.initContainers[0].securityContext.runAsUser, 0);
+  assert.equal(job.spec.template.spec.initContainers[0].securityContext.runAsNonRoot, false);
   assert.equal(job.spec.template.spec.initContainers[0].terminationMessagePath, "/dev/termination-log");
   assert.equal(job.spec.template.spec.initContainers[0].terminationMessagePolicy, "File");
   assert.equal(job.spec.template.spec.containers[0].terminationMessagePath, "/dev/termination-log");
@@ -27,6 +29,7 @@ test("Nocco-buildern kan bara skapa Adescos fasta, SHA-pinnade nextjs-npm-jobb",
     { name: "TMPDIR", value: "/tmp" }
   ]);
   assert.equal(job.spec.template.spec.containers[0].securityContext.allowPrivilegeEscalation, false);
+  assert.equal(job.spec.template.spec.containers[0].securityContext.runAsNonRoot, true);
   assert.deepEqual(job.spec.template.spec.initContainers[0].env.slice(0, 3), [
     { name: "FORGE_CHECKOUT_REPOSITORY", value: "git@github.com:mkjellma/adesco.git" },
     { name: "FORGE_BRANCH", value: "main" },

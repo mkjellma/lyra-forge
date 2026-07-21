@@ -48,6 +48,12 @@ Först införs en enda build-only executor för den registrerade profilen
   Job-fält, vilket är en medveten, dokumenterad labbtrade-off i v0. Admission
   återinförs först när fler projekt eller noder ger tydlig nytta.
 
+Checkout-initcontainern kör som root inne i den kortlivade `alpine/git`-
+containern eftersom den pinnade imagen saknar en användarpost för UID `10001`
+och OpenSSH då vägrar starta. Den får fortfarande inga capabilities,
+service-account-token, hostmount eller skrivbart rootfilsystem; själva
+repositorybuilden körs fortsatt som UID `10001` utan nyckelmount.
+
 Källträdet innehåller en ren owner-side factory för just detta Job-template och
 dess minimala RBAC-kontrakt. Den körs i en sidecar med en projicerad
 Kubernetes-token; Forge-processen har varken token eller Kubernetes-klient.
