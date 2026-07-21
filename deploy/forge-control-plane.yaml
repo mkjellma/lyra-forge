@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: forge-api
+  name: forge-build-executor
   namespace: forge-system
 automountServiceAccountToken: false
 ---
@@ -35,7 +35,7 @@ spec:
       labels:
         app.kubernetes.io/name: forge-control-plane
     spec:
-      serviceAccountName: forge-api
+      serviceAccountName: forge-build-executor
       automountServiceAccountToken: false
       enableServiceLinks: false
       terminationGracePeriodSeconds: 30
@@ -62,6 +62,8 @@ spec:
                   key: api-token
             - name: FORGE_STATE_PATH
               value: /var/lib/forge/forge-state.json
+            - name: FORGE_BUILD_EXECUTOR_SOCKET
+              value: /var/run/forge-executor/executor.sock
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
@@ -93,10 +95,57 @@ spec:
           volumeMounts:
             - name: state
               mountPath: /var/lib/forge
+            - name: executor-socket
+              mountPath: /var/run/forge-executor
+        - name: build-executor
+          image: lyra-forge:0.1.0
+          imagePullPolicy: Never
+          command: ["node", "src/build-executor-main.js"]
+          env:
+            - name: FORGE_BUILD_EXECUTOR_SOCKET
+              value: /var/run/forge-executor/executor.sock
+            - name: FORGE_CHECKOUT_IMAGE
+              value: docker.io/alpine/git@sha256:5e1543841d987081a1e0e37305039b2bb9908592a4cddad95b4c4c49d07653a3
+            - name: FORGE_BUILDER_IMAGE
+              value: docker.io/library/node@sha256:4ba75f835bb8802193e4c114572113d4b26f95f6f094f4b5229d2a77773e0afc
+            - name: NODE_EXTRA_CA_CERTS
+              value: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            readOnlyRootFilesystem: true
+          resources:
+            requests:
+              cpu: 25m
+              memory: 64Mi
+            limits:
+              cpu: 100m
+              memory: 128Mi
+          volumeMounts:
+            - name: executor-socket
+              mountPath: /var/run/forge-executor
+            - name: executor-token
+              mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+              readOnly: true
       volumes:
         - name: state
           persistentVolumeClaim:
             claimName: forge-state
+        - name: executor-socket
+          emptyDir: {}
+        - name: executor-token
+          projected:
+            sources:
+              - serviceAccountToken:
+                  path: token
+                  audience: https://kubernetes.default.svc
+                  expirationSeconds: 3600
+              - configMap:
+                  name: kube-root-ca.crt
+                  items:
+                    - key: ca.crt
+                      path: ca.crt
 ---
 apiVersion: v1
 kind: Service

@@ -41,6 +41,10 @@ export class RejectingBuildVerificationExecutor {
   async startBuild() {
     throw conflict("BUILD_EXECUTOR_UNAVAILABLE");
   }
+
+  async getBuildStatus() {
+    throw conflict("BUILD_EXECUTOR_UNAVAILABLE");
+  }
 }
 
 export class FixtureRuntimeExecutor {

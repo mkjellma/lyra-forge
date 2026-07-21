@@ -1,10 +1,11 @@
 import { readFile } from "node:fs/promises";
 import { ContentFreeAuditLog, ProjectRegistry, ReleaseStore } from "./stores.js";
-import { RejectingBuildExecutor, RejectingGitProvider, RejectingRuntimeExecutor } from "./adapters.js";
+import { RejectingBuildExecutor, RejectingBuildVerificationExecutor, RejectingGitProvider, RejectingRuntimeExecutor } from "./adapters.js";
 import { ForgeService } from "./forge-service.js";
 import { createForgeHttpServer } from "./http-server.js";
 import { JsonStateStore } from "./persistence.js";
 import { loadRuntimeConfig } from "./runtime-config.js";
+import { UnixBuildExecutorClient } from "./unix-build-executor-client.js";
 
 const registryPath = process.argv[2] ?? "config/projects.example.json";
 const runtime = loadRuntimeConfig();
@@ -21,6 +22,9 @@ const forge = new ForgeService({
   audit: new ContentFreeAuditLog({ state: persistedState?.audit }),
   gitProvider: new RejectingGitProvider(),
   buildExecutor: new RejectingBuildExecutor(),
+  buildVerificationExecutor: runtime.buildExecutorSocket
+    ? new UnixBuildExecutorClient({ socketPath: runtime.buildExecutorSocket })
+    : new RejectingBuildVerificationExecutor(),
   runtimeExecutor: new RejectingRuntimeExecutor(),
   stateStore
 });

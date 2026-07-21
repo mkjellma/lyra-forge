@@ -115,6 +115,12 @@ export class ForgeService {
     return this.buildQueue.run(() => this.performBuildVerification(projectId, commitSha, actorType));
   }
 
+  async getBuildVerificationStatus(projectId, operationId) {
+    this.registry.get(projectId);
+    if (typeof this.buildVerificationExecutor.getBuildStatus !== "function") throw conflict("BUILD_EXECUTOR_UNAVAILABLE");
+    return this.buildVerificationExecutor.getBuildStatus({ operationId });
+  }
+
   async performBuildVerification(projectId, commitSha, actorType) {
     const project = this.registry.get(projectId);
     const normalizedSha = assertCommitSha(commitSha);

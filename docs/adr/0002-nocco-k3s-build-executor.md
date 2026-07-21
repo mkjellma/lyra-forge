@@ -26,7 +26,7 @@ Först införs en enda build-only executor för den registrerade profilen
 `nextjs-npm` och det explicit allowlistade projektet `adesco-webb`:
 
 - Forge skickar endast `projectId` och exakt commit-SHA över en privat lokal
-  transport.
+  Unix-socket till en sidecar i samma pod.
 - Executor hämtar endast den registrerade repo-/branch-kombinationen och kör
   den fasta recepten `npm ci` och `npm run build` i en kortlivad, begränsad
   Node-jobbmiljö.
@@ -46,8 +46,11 @@ Först införs en enda build-only executor för den registrerade profilen
   inte ett krav för denna enda ägarstyrda pilot.
 
 Källträdet innehåller en ren owner-side factory för just detta Job-template och
-dess minimala RBAC-kontrakt. Den är inte ansluten till Forge-processen och kan
-inte anropas via API.
+dess minimala RBAC-kontrakt. Den körs i en sidecar med en projicerad
+Kubernetes-token; Forge-processen har varken token eller Kubernetes-klient.
+Första buildern är pinnad till Node 24.18.0 för `linux/amd64` och checkouten
+till en verifierad `alpine/git`-digest. Båda importeras lokalt till Nocco före
+aktivering; buildjobbet pullar inte fritt från nätet.
 
 `adesco-webb` kan registreras med `manual` policy och `runtimeBinding: null`.
 En sådan registrering är uttryckligen oprovisionerad och blockerad från deploy:

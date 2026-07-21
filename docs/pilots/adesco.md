@@ -51,7 +51,7 @@ enskilda projekt.
 | --- | --- |
 | Checkout | exakt SHA från registrerad `main` |
 | Install | `npm ci` från versionslåst `package-lock.json` |
-| Gate | `npm run lint` följt av `npm run build` |
+| Gate | `npm run build` |
 | Resultat | innehållsfri buildstatus för exakt SHA; ingen artifactkanal eller registry i detta steg |
 | Start | ingen runtime start i detta build-only steg |
 | Resurser | en instans, en build i taget; CPU/minne/tidsgräns beslutas före drift |

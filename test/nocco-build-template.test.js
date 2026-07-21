@@ -17,15 +17,26 @@ test("Nocco-buildern kan bara skapa Adescos fasta, SHA-pinnade nextjs-npm-jobb",
   assert.equal(job.spec.template.spec.initContainers[0].image, CHECKOUT_IMAGE);
   assert.equal(job.spec.template.spec.containers[0].image, BUILDER_IMAGE);
   assert.deepEqual(job.spec.template.spec.containers[0].args, ["set -eu\nnpm ci\nnpm run build"]);
-  assert.deepEqual(job.spec.template.spec.containers[0].env, [{ name: "NPM_CONFIG_CACHE", value: "/workspace/.npm-cache" }]);
+  assert.deepEqual(job.spec.template.spec.containers[0].env, [
+    { name: "HOME", value: "/home/forge" },
+    { name: "NPM_CONFIG_CACHE", value: "/workspace/.npm-cache" },
+    { name: "TMPDIR", value: "/tmp" }
+  ]);
   assert.equal(job.spec.template.spec.containers[0].securityContext.allowPrivilegeEscalation, false);
-  assert.deepEqual(job.spec.template.spec.volumes, [{ name: "workspace", emptyDir: { sizeLimit: "2Gi" } }]);
+  assert.deepEqual(job.spec.template.spec.volumes, [
+    { name: "workspace", emptyDir: { sizeLimit: "2Gi" } },
+    { name: "runtime-tmp", emptyDir: { sizeLimit: "256Mi" } },
+    { name: "runtime-home", emptyDir: { sizeLimit: "256Mi" } }
+  ]);
+  assert.match(job.spec.template.spec.initContainers[0].args[0], /refs\/forge\/allowed/);
+  assert.equal(job.spec.template.spec.securityContext.fsGroup, 10001);
   assert.equal(Object.isFrozen(job), true);
   assert.deepEqual(noccoBuildPolicy(), {
     projectId: "adesco-webb",
     namespace: "forge-build",
     repository: "https://github.com/mkjellma/adesco.git",
     branch: "main",
+    allowedBranch: "main",
     buildProfile: "nextjs-npm",
     activeDeadlineSeconds: 900,
     ttlSecondsAfterFinished: 3600,
@@ -49,9 +60,11 @@ test("Nocco-buildern avvisar opinnade eller fria image-referenser", () => {
 
 test("executor-RBAC är endast Job create/get och buildjobbet får ingen token", () => {
   const contract = createNoccoBuildExecutorRbac({});
-  assert.equal(contract.serviceAccount.automountServiceAccountToken, true);
+  assert.equal(contract.serviceAccount.metadata.namespace, "forge-system");
+  assert.equal(contract.serviceAccount.automountServiceAccountToken, false);
   assert.equal(contract.buildJobServiceAccount.automountServiceAccountToken, false);
   assert.deepEqual(contract.role.rules, [{ apiGroups: ["batch"], resources: ["jobs"], verbs: ["create", "get"] }]);
+  assert.deepEqual(contract.roleBinding.subjects, [{ kind: "ServiceAccount", name: "forge-build-executor", namespace: "forge-system" }]);
   assert.equal(Object.isFrozen(contract), true);
   assert.throws(() => createNoccoBuildExecutorRbac({ serviceAccountName: "../../escape" }), { code: "INVALID_EXECUTOR_SERVICE_ACCOUNT" });
 });

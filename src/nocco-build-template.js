@@ -7,6 +7,7 @@ const ADESCO_POLICY = Object.freeze({
   namespace: "forge-build",
   repository: "https://github.com/mkjellma/adesco.git",
   branch: "main",
+  allowedBranch: "main",
   buildProfile: "nextjs-npm",
   activeDeadlineSeconds: 900,
   ttlSecondsAfterFinished: 3600,
@@ -21,9 +22,10 @@ const CHECKOUT_SCRIPT = [
   "git init /workspace",
   "git -C /workspace remote add origin \"$FORGE_REPOSITORY\"",
   "git -C /workspace fetch --no-tags origin \"$FORGE_BRANCH\"",
+  "git -C /workspace update-ref refs/forge/allowed FETCH_HEAD",
   "git -C /workspace fetch --no-tags origin \"$FORGE_COMMIT_SHA\"",
   "git -C /workspace cat-file -e \"$FORGE_COMMIT_SHA^{commit}\"",
-  "git -C /workspace merge-base --is-ancestor \"$FORGE_COMMIT_SHA\" FETCH_HEAD",
+  "git -C /workspace merge-base --is-ancestor \"$FORGE_COMMIT_SHA\" refs/forge/allowed",
   "git -C /workspace checkout --detach \"$FORGE_COMMIT_SHA\""
 ].join("\n");
 
@@ -105,31 +107,47 @@ export function createAdescoNoccoBuildJob({ commitSha, checkoutImage, builderIma
           hostNetwork: false,
           hostPID: false,
           hostIPC: false,
-          securityContext: Object.freeze({ seccompProfile: Object.freeze({ type: "RuntimeDefault" }) }),
+          securityContext: Object.freeze({ fsGroup: 10001, seccompProfile: Object.freeze({ type: "RuntimeDefault" }) }),
           initContainers: Object.freeze([Object.freeze({
             name: "checkout",
             image: images.checkout,
-            imagePullPolicy: "IfNotPresent",
+            imagePullPolicy: "Never",
             command: Object.freeze(["/bin/sh", "-ec"]),
             args: Object.freeze([CHECKOUT_SCRIPT]),
             env: Object.freeze(checkoutEnvironment.map((entry) => Object.freeze({ ...entry }))),
             resources: Object.freeze(resources()),
             securityContext: Object.freeze(fixedSecurityContext()),
-            volumeMounts: Object.freeze([{ name: "workspace", mountPath: "/workspace" }])
+            volumeMounts: Object.freeze([
+              { name: "workspace", mountPath: "/workspace" },
+              { name: "runtime-tmp", mountPath: "/tmp" },
+              { name: "runtime-home", mountPath: "/home/forge" }
+            ])
           })]),
           containers: Object.freeze([Object.freeze({
             name: "build",
             image: images.builder,
-            imagePullPolicy: "IfNotPresent",
+            imagePullPolicy: "Never",
             command: Object.freeze(["/bin/sh", "-ec"]),
             args: Object.freeze([BUILD_SCRIPT]),
-            env: Object.freeze([{ name: "NPM_CONFIG_CACHE", value: "/workspace/.npm-cache" }]),
+            env: Object.freeze([
+              { name: "HOME", value: "/home/forge" },
+              { name: "NPM_CONFIG_CACHE", value: "/workspace/.npm-cache" },
+              { name: "TMPDIR", value: "/tmp" }
+            ]),
             resources: Object.freeze(resources()),
             securityContext: Object.freeze(fixedSecurityContext()),
-            volumeMounts: Object.freeze([{ name: "workspace", mountPath: "/workspace" }]),
+            volumeMounts: Object.freeze([
+              { name: "workspace", mountPath: "/workspace" },
+              { name: "runtime-tmp", mountPath: "/tmp" },
+              { name: "runtime-home", mountPath: "/home/forge" }
+            ]),
             workingDir: "/workspace"
           })]),
-          volumes: Object.freeze([{ name: "workspace", emptyDir: Object.freeze({ sizeLimit: "2Gi" }) }])
+          volumes: Object.freeze([
+            { name: "workspace", emptyDir: Object.freeze({ sizeLimit: "2Gi" }) },
+            { name: "runtime-tmp", emptyDir: Object.freeze({ sizeLimit: "256Mi" }) },
+            { name: "runtime-home", emptyDir: Object.freeze({ sizeLimit: "256Mi" }) }
+          ])
         })
       })
     })

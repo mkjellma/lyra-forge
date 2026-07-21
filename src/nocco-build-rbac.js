@@ -1,6 +1,7 @@
 import { badRequest } from "./errors.js";
 
 const NAMESPACE = "forge-build";
+const EXECUTOR_NAMESPACE = "forge-system";
 
 /**
  * The executor can create and inspect Jobs only. The fixed template is the
@@ -15,8 +16,8 @@ export function createNoccoBuildExecutorRbac({ serviceAccountName = "forge-build
     serviceAccount: Object.freeze({
       apiVersion: "v1",
       kind: "ServiceAccount",
-      metadata: Object.freeze({ name: serviceAccountName, namespace: NAMESPACE }),
-      automountServiceAccountToken: true
+      metadata: Object.freeze({ name: serviceAccountName, namespace: EXECUTOR_NAMESPACE }),
+      automountServiceAccountToken: false
     }),
     buildJobServiceAccount: Object.freeze({
       apiVersion: "v1",
@@ -34,7 +35,7 @@ export function createNoccoBuildExecutorRbac({ serviceAccountName = "forge-build
       apiVersion: "rbac.authorization.k8s.io/v1",
       kind: "RoleBinding",
       metadata: Object.freeze({ name: "forge-build-executor", namespace: NAMESPACE }),
-      subjects: Object.freeze([{ kind: "ServiceAccount", name: serviceAccountName, namespace: NAMESPACE }]),
+      subjects: Object.freeze([{ kind: "ServiceAccount", name: serviceAccountName, namespace: EXECUTOR_NAMESPACE }]),
       roleRef: Object.freeze({ apiGroup: "rbac.authorization.k8s.io", kind: "Role", name: "forge-build-executor" })
     })
   });

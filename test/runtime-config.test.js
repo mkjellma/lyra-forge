@@ -38,3 +38,8 @@ test("runtimekonfigurationen håller den valfria Lyra-läsidentiteten separat fr
     { message: "FORGE_LYRA_READ_TOKEN_MUST_DIFFER" }
   );
 });
+
+test("runtimekonfigurationen kan aktivera enbart den lokala executor-socketen", () => {
+  const config = loadRuntimeConfig({ FORGE_API_TOKEN: "admin", FORGE_BUILD_EXECUTOR_SOCKET: "/var/run/forge-executor/executor.sock" });
+  assert.equal(config.buildExecutorSocket, "/var/run/forge-executor/executor.sock");
+});
