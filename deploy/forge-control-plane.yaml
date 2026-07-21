@@ -60,6 +60,11 @@ spec:
                 secretKeyRef:
                   name: forge-api-token
                   key: api-token
+            - name: FORGE_LYRA_READ_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: forge-lyra-read-token
+                  key: FORGE_LYRA_READ_TOKEN
             - name: FORGE_STATE_PATH
               value: /var/lib/forge/forge-state.json
             - name: FORGE_BUILD_EXECUTOR_SOCKET
