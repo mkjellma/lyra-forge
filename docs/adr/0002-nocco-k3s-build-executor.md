@@ -43,9 +43,10 @@ Först införs en enda build-only executor för den registrerade profilen
   `get` för Jobs, plus en fast, pinnad template: inga fria images/kommandon,
   ingen privileged-/host-åtkomst, ingen service-account-token i buildjobbet
   och fasta resurs-/deadlinegränser. När det privata Adesco-repot läses med
-  deploy key ska en liten admission-policy samtidigt låsa just denna template,
-  dess två pinnade images och den enda läsnyckelmounten. RBAC kan inte själv
-  begränsa Job-fält.
+  deploy key ligger den bara i checkout-initcontainern; buildcontainern,
+  Forge-processen och Lyra får aldrig nyckeln. RBAC kan inte själv begränsa
+  Job-fält, vilket är en medveten, dokumenterad labbtrade-off i v0. Admission
+  återinförs först när fler projekt eller noder ger tydlig nytta.
 
 Källträdet innehåller en ren owner-side factory för just detta Job-template och
 dess minimala RBAC-kontrakt. Den körs i en sidecar med en projicerad
