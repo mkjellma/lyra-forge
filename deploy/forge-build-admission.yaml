@@ -23,7 +23,9 @@ spec:
         object.metadata.labels['forge.lyra/project'] == 'adesco-webb' &&
         object.metadata.labels['forge.lyra/commit'].matches('^[a-f0-9]{40}$') &&
         object.metadata.name == 'forge-build-adesco-' + object.metadata.labels['forge.lyra/commit'].substring(0, 12) &&
-        object.spec.template.metadata.labels == object.metadata.labels)
+        object.spec.template.metadata.labels.size() == 2 &&
+        object.spec.template.metadata.labels['forge.lyra/project'] == 'adesco-webb' &&
+        object.spec.template.metadata.labels['forge.lyra/commit'] == object.metadata.labels['forge.lyra/commit'])
       message: Forge executor may create only deterministically named Adesco jobs.
     - expression: >-
         request.userInfo.username != 'system:serviceaccount:forge-system:forge-build-executor' ||
