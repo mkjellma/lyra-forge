@@ -19,13 +19,19 @@ spec:
         request.userInfo.username != 'system:serviceaccount:forge-system:forge-build-executor' ||
         (request.namespace == 'forge-build' &&
         object.metadata.name.matches('^forge-build-adesco-[a-f0-9]{12}$') &&
-        object.metadata.labels.size() == 2 &&
+        object.metadata.labels.size() == 3 &&
+        object.metadata.labels['app.kubernetes.io/name'] == 'forge-build' &&
         object.metadata.labels['forge.lyra/project'] == 'adesco-webb' &&
         object.metadata.labels['forge.lyra/commit'].matches('^[a-f0-9]{40}$') &&
         object.metadata.name == 'forge-build-adesco-' + object.metadata.labels['forge.lyra/commit'].substring(0, 12) &&
-        object.spec.template.metadata.labels.size() == 2 &&
+        object.spec.template.metadata.labels.size() == 7 &&
+        object.spec.template.metadata.labels['app.kubernetes.io/name'] == 'forge-build' &&
         object.spec.template.metadata.labels['forge.lyra/project'] == 'adesco-webb' &&
-        object.spec.template.metadata.labels['forge.lyra/commit'] == object.metadata.labels['forge.lyra/commit'])
+        object.spec.template.metadata.labels['forge.lyra/commit'] == object.metadata.labels['forge.lyra/commit'] &&
+        object.spec.template.metadata.labels['batch.kubernetes.io/job-name'] == object.metadata.name &&
+        object.spec.template.metadata.labels['job-name'] == object.metadata.name &&
+        object.spec.template.metadata.labels['batch.kubernetes.io/controller-uid'] == object.spec.template.metadata.labels['controller-uid'] &&
+        object.spec.template.metadata.labels['controller-uid'].matches('^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$'))
       message: Forge executor may create only deterministically named Adesco jobs.
     - expression: >-
         request.userInfo.username != 'system:serviceaccount:forge-system:forge-build-executor' ||
