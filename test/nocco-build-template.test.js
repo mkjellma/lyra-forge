@@ -16,6 +16,10 @@ test("Nocco-buildern kan bara skapa Adescos fasta, SHA-pinnade nextjs-npm-jobb",
   assert.equal(job.spec.template.spec.automountServiceAccountToken, false);
   assert.equal(job.spec.template.spec.initContainers[0].image, CHECKOUT_IMAGE);
   assert.equal(job.spec.template.spec.containers[0].image, BUILDER_IMAGE);
+  assert.equal(job.spec.template.spec.initContainers[0].terminationMessagePath, "/dev/termination-log");
+  assert.equal(job.spec.template.spec.initContainers[0].terminationMessagePolicy, "File");
+  assert.equal(job.spec.template.spec.containers[0].terminationMessagePath, "/dev/termination-log");
+  assert.equal(job.spec.template.spec.containers[0].terminationMessagePolicy, "File");
   assert.deepEqual(job.spec.template.spec.containers[0].args, ["set -eu\nnpm ci\nnpm run build"]);
   assert.deepEqual(job.spec.template.spec.containers[0].env, [
     { name: "HOME", value: "/home/forge" },

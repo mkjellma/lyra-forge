@@ -58,15 +58,15 @@ spec:
         !has(object.spec.template.spec.initContainers[0].livenessProbe) &&
         !has(object.spec.template.spec.initContainers[0].readinessProbe) &&
         !has(object.spec.template.spec.initContainers[0].startupProbe) &&
-        !has(object.spec.template.spec.initContainers[0].terminationMessagePath) &&
-        !has(object.spec.template.spec.initContainers[0].terminationMessagePolicy) &&
+        object.spec.template.spec.initContainers[0].terminationMessagePath == '/dev/termination-log' &&
+        object.spec.template.spec.initContainers[0].terminationMessagePolicy == 'File' &&
         !has(object.spec.template.spec.initContainers[0].volumeDevices) &&
         !has(object.spec.template.spec.containers[0].lifecycle) &&
         !has(object.spec.template.spec.containers[0].livenessProbe) &&
         !has(object.spec.template.spec.containers[0].readinessProbe) &&
         !has(object.spec.template.spec.containers[0].startupProbe) &&
-        !has(object.spec.template.spec.containers[0].terminationMessagePath) &&
-        !has(object.spec.template.spec.containers[0].terminationMessagePolicy) &&
+        object.spec.template.spec.containers[0].terminationMessagePath == '/dev/termination-log' &&
+        object.spec.template.spec.containers[0].terminationMessagePolicy == 'File' &&
         !has(object.spec.template.spec.containers[0].volumeDevices))
       message: Forge executor may use only the fixed checkout and builder images and commands.
     - expression: >-

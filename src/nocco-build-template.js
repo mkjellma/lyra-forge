@@ -121,6 +121,8 @@ export function createAdescoNoccoBuildJob({ commitSha, checkoutImage, builderIma
             name: "checkout",
             image: images.checkout,
             imagePullPolicy: "Never",
+            terminationMessagePath: "/dev/termination-log",
+            terminationMessagePolicy: "File",
             command: Object.freeze(["/bin/sh", "-ec"]),
             args: Object.freeze([CHECKOUT_SCRIPT]),
             env: Object.freeze(checkoutEnvironment.map((entry) => Object.freeze({ ...entry }))),
@@ -139,6 +141,8 @@ export function createAdescoNoccoBuildJob({ commitSha, checkoutImage, builderIma
             name: "build",
             image: images.builder,
             imagePullPolicy: "Never",
+            terminationMessagePath: "/dev/termination-log",
+            terminationMessagePolicy: "File",
             command: Object.freeze(["/bin/sh", "-ec"]),
             args: Object.freeze([BUILD_SCRIPT]),
             env: Object.freeze([
