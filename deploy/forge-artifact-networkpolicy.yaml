@@ -1,0 +1,24 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: forge-registry-internal-only
+  namespace: forge-artifacts
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: forge-registry
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: forge-build
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: forge-runtime
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: forge-system
+      ports:
+        - protocol: TCP
+          port: 5000

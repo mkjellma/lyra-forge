@@ -13,14 +13,16 @@ const project = { ...exampleProject({ projectId: "adesco-webb", repository: "htt
 const buildPolicies = loadNoccoBuildProjects({ projects: [{ projectId: "adesco-webb", repository: project.repository, allowedBranch: "main", buildProfile: "nextjs-npm", deployKeySecret: "adesco-github-deploy-key", githubKnownHostsConfigMap: "github-com-known-hosts" }] });
 const runtimePolicies = loadNoccoRuntimeProjects({ projects: [{ projectId: "adesco-webb", repository: project.repository, allowedBranch: "main", buildProfile: "nextjs-npm", runtimeProfile: "private-http", registryRepository: "forge/adesco-webb" }] });
 
-function makeExecutor({ job = { metadata: { labels: { "forge.lyra/project": "adesco-webb", "forge.lyra/commit": SHA_A, "forge.lyra/release": "release-1" } }, status: { succeeded: 1 } }, deployment = { metadata: { labels: { "forge.lyra/project": "adesco-webb", "forge.lyra/release": "release-1", "forge.lyra/commit": SHA_A } }, status: { availableReplicas: 1 } } } = {}) {
+function makeExecutor({ job = { metadata: { labels: { "forge.lyra/project": "adesco-webb", "forge.lyra/commit": SHA_A, "forge.lyra/release": "release-1" } }, status: { succeeded: 1 } } } = {}) {
   const calls = [];
+  let service;
+  let deployment;
   const runtimeClient = {
-    async createService(service) { calls.push(["service", service.metadata.name]); return { state: "created", name: service.metadata.name }; },
-    async createDeployment(value) { calls.push(["deployment", value.metadata.name]); return { state: "created", name: value.metadata.name }; },
+    async createService(value) { service = value; calls.push(["service", value.metadata.name]); return { state: "created", name: value.metadata.name }; },
+    async createDeployment(value) { deployment = { ...value, status: { availableReplicas: 1 } }; calls.push(["deployment", value.metadata.name]); return { state: "created", name: value.metadata.name }; },
     async getDeployment() { return deployment; },
     async patchService(value) { calls.push(["switch", value.patch.spec.selector["forge.lyra/release"]]); return {}; },
-    async getService() { return { spec: { selector: { "forge.lyra/release": "release-1" } } }; },
+    async getService() { return service; },
     async patchDeployment() { return {}; }
   };
   const executor = new NoccoRuntimeExecutor({

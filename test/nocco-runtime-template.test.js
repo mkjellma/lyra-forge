@@ -45,8 +45,8 @@ test("artifactjobbet har fast checkout, build och intern ORAS-publicering", () =
   assert.equal(job.metadata.namespace, "forge-build");
   assert.equal(job.metadata.name, "forge-artifact-adesco-webb-release-7");
   assert.equal(job.spec.template.spec.initContainers[1].name, "build");
-  assert.match(job.spec.template.spec.containers[0].args[0], /oras push --plain-http/);
-  assert.match(job.spec.template.spec.containers[0].env[0].value, new RegExp(`:${SHA_A}$`));
+  assert.deepEqual(job.spec.template.spec.containers[0].command.slice(0, 3), ["oras", "push", "--plain-http"]);
+  assert.match(job.spec.template.spec.containers[0].command[3], new RegExp(`:${SHA_A}$`));
   assert.equal(job.spec.template.spec.initContainers[1].volumeMounts.some((mount) => mount.name === "git-key"), false);
 });
 
@@ -59,7 +59,7 @@ test("runtimekandidaten hämtar immutable digest privat och exponeras bara genom
   const service = createNoccoRuntimeService(policy);
   assert.equal(deployment.metadata.namespace, "forge-runtime");
   assert.equal(deployment.spec.strategy.type, "Recreate");
-  assert.match(deployment.spec.template.spec.initContainers[0].env[0].value, new RegExp(`@${DIGEST}$`));
+  assert.match(deployment.spec.template.spec.initContainers[0].command[3], new RegExp(`@${DIGEST}$`));
   assert.equal(deployment.spec.template.spec.containers[0].command.join(" "), "npm start");
   assert.equal(service.spec.type, "ClusterIP");
   assert.equal(Object.hasOwn(service.spec, "externalIPs"), false);

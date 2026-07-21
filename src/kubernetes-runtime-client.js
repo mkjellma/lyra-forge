@@ -26,7 +26,11 @@ export class KubernetesRuntimeClient {
     try {
       response = await this.fetchFn(`${this.apiOrigin}${path}`, {
         method,
-        headers: { authorization: `Bearer ${this.token}`, accept: "application/json", ...(body ? { "content-type": "application/json" } : {}) },
+        headers: {
+          authorization: `Bearer ${this.token}`,
+          accept: "application/json",
+          ...(body ? { "content-type": method === "PATCH" ? "application/merge-patch+json" : "application/json" } : {})
+        },
         ...(body ? { body: JSON.stringify(body) } : {})
       });
     } catch { throw unavailable(); }

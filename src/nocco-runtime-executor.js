@@ -25,6 +25,31 @@ function deploymentState(deployment) {
   return "pending";
 }
 
+function validService(service, policy) {
+  return service?.metadata?.namespace === policy.runtimeBinding.namespace
+    && service?.metadata?.name === policy.runtimeBinding.workloadName
+    && service?.spec?.type === "ClusterIP"
+    && service?.spec?.ports?.length === 1
+    && service.spec.ports[0]?.port === 3000
+    && service.spec.ports[0]?.targetPort === "http"
+    && service.spec.selector?.["forge.lyra/project"] === policy.projectId;
+}
+
+function validCandidate(deployment, policy, release, commitSha, artifactDigest, nodeImage, orasImage) {
+  return deployment?.metadata?.namespace === policy.runtimeBinding.namespace
+    && deployment?.metadata?.name === runtimeOperationId(policy, release.releaseId)
+    && deployment?.metadata?.labels?.["forge.lyra/project"] === policy.projectId
+    && deployment?.metadata?.labels?.["forge.lyra/release"] === release.releaseId
+    && deployment?.metadata?.labels?.["forge.lyra/commit"] === commitSha
+    && deployment?.spec?.template?.metadata?.annotations?.["forge.lyra/artifact-digest"] === artifactDigest
+    && deployment?.spec?.template?.spec?.automountServiceAccountToken === false
+    && deployment?.spec?.template?.spec?.containers?.length === 1
+    && deployment.spec.template.spec.containers[0]?.image === nodeImage
+    && deployment.spec.template.spec.containers[0]?.command?.join(" ") === "npm start"
+    && deployment?.spec?.template?.spec?.initContainers?.length === 2
+    && deployment.spec.template.spec.initContainers[0]?.image === orasImage;
+}
+
 /**
  * Fixed artifact-to-runtime executor. It receives only a project object already
  * registered by Forge and a release record; all images, registry location and
@@ -64,8 +89,12 @@ export class NoccoRuntimeExecutor {
     const deployment = createNoccoRuntimeDeployment({ policy, releaseId: release.releaseId, commitSha, artifactDigest, nodeImage: this.nodeImage, orasImage: this.orasImage, registryOrigin: this.registryOrigin, healthCheck });
     const service = createNoccoRuntimeService(policy);
     await this.runtimeClient.createService(service);
+    const existingService = await this.runtimeClient.getService({ namespace: service.metadata.namespace, name: service.metadata.name });
+    if (!validService(existingService, policy)) throw protocolError();
     const result = await this.runtimeClient.createDeployment(deployment);
     if (!result || !["created", "exists"].includes(result.state) || result.name !== deployment.metadata.name) throw protocolError();
+    const existingDeployment = await this.runtimeClient.getDeployment({ namespace: deployment.metadata.namespace, name: deployment.metadata.name });
+    if (!validCandidate(existingDeployment, policy, release, commitSha, artifactDigest, this.nodeImage, this.orasImage)) throw protocolError();
     return deployment.metadata.name;
   }
 
@@ -84,7 +113,7 @@ export class NoccoRuntimeExecutor {
     }
     if (operationId !== deploymentName && !operationId.startsWith("forge-artifact-")) throw protocolError();
     const deployment = await this.runtimeClient.getDeployment({ namespace: "forge-runtime", name: deploymentName });
-    if (deployment?.metadata?.labels?.["forge.lyra/project"] !== project.projectId || deployment?.metadata?.labels?.["forge.lyra/release"] !== release.releaseId || deployment?.metadata?.labels?.["forge.lyra/commit"] !== commitSha) throw protocolError();
+    if (!validCandidate(deployment, runtimePolicy, release, commitSha, artifactDigest, this.nodeImage, this.orasImage)) throw protocolError();
     const state = deploymentState(deployment);
     if (state === "succeeded") {
       await this.runtimeClient.patchService({ namespace: "forge-runtime", name: runtimePolicy.runtimeBinding.workloadName, patch: { spec: { selector: { "forge.lyra/project": project.projectId, "forge.lyra/release": release.releaseId } } } });

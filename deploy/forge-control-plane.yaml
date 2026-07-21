@@ -49,7 +49,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: forge
-          image: lyra-forge:0.1.0
+          image: docker.io/library/lyra-forge:69b7cda
           imagePullPolicy: Never
           ports:
             - containerPort: 3000
@@ -64,6 +64,10 @@ spec:
               value: /var/lib/forge/forge-state.json
             - name: FORGE_BUILD_EXECUTOR_SOCKET
               value: /var/run/forge-executor/executor.sock
+            - name: FORGE_RUNTIME_EXECUTOR_SOCKET
+              value: /var/run/forge-executor/runtime.sock
+            - name: FORGE_RUNTIME_PROJECTS_PATH
+              value: /etc/forge-runtime-projects/runtime-projects.json
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
@@ -97,8 +101,11 @@ spec:
               mountPath: /var/lib/forge
             - name: executor-socket
               mountPath: /var/run/forge-executor
+            - name: runtime-projects
+              mountPath: /etc/forge-runtime-projects
+              readOnly: true
         - name: build-executor
-          image: lyra-forge:0.1.0
+          image: docker.io/library/lyra-forge:69b7cda
           imagePullPolicy: Never
           command: ["node", "src/build-executor-main.js"]
           env:
@@ -133,6 +140,55 @@ spec:
             - name: executor-token
               mountPath: /var/run/secrets/kubernetes.io/serviceaccount
               readOnly: true
+        - name: runtime-executor
+          image: docker.io/library/lyra-forge:69b7cda
+          imagePullPolicy: Never
+          command: ["node", "src/runtime-executor-main.js"]
+          env:
+            - name: FORGE_RUNTIME_EXECUTOR_SOCKET
+              value: /var/run/forge-executor/runtime.sock
+            - name: FORGE_BUILD_PROJECTS_PATH
+              value: /etc/forge-build-projects/build-projects.json
+            - name: FORGE_RUNTIME_PROJECTS_PATH
+              value: /etc/forge-runtime-projects/runtime-projects.json
+            - name: FORGE_CHECKOUT_IMAGE
+              value: docker.io/alpine/git@sha256:5e1543841d987081a1e0e37305039b2bb9908592a4cddad95b4c4c49d07653a3
+            - name: FORGE_BUILDER_IMAGE
+              value: docker.io/library/node@sha256:4ba75f835bb8802193e4c114572113d4b26f95f6f094f4b5229d2a77773e0afc
+            - name: FORGE_RUNTIME_NODE_IMAGE
+              value: docker.io/library/node@sha256:4ba75f835bb8802193e4c114572113d4b26f95f6f094f4b5229d2a77773e0afc
+            - name: FORGE_PUBLISHER_IMAGE
+              value: ghcr.io/oras-project/oras@sha256:9c1ebe88d6969efdbdea6570c13a25b12ffafbbd61cde1e76e408da396ab23aa
+            - name: FORGE_ORAS_IMAGE
+              value: ghcr.io/oras-project/oras@sha256:9c1ebe88d6969efdbdea6570c13a25b12ffafbbd61cde1e76e408da396ab23aa
+            - name: FORGE_ARTIFACT_REGISTRY_ORIGIN
+              value: http://forge-registry.forge-artifacts.svc:5000
+            - name: NODE_EXTRA_CA_CERTS
+              value: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            readOnlyRootFilesystem: true
+          resources:
+            requests:
+              cpu: 25m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
+          volumeMounts:
+            - name: executor-socket
+              mountPath: /var/run/forge-executor
+            - name: build-projects
+              mountPath: /etc/forge-build-projects
+              readOnly: true
+            - name: runtime-projects
+              mountPath: /etc/forge-runtime-projects
+              readOnly: true
+            - name: executor-token
+              mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+              readOnly: true
       volumes:
         - name: state
           persistentVolumeClaim:
@@ -156,6 +212,12 @@ spec:
             items:
               - key: build-projects.json
                 path: build-projects.json
+        - name: runtime-projects
+          configMap:
+            name: forge-runtime-projects
+            items:
+              - key: runtime-projects.json
+                path: runtime-projects.json
 ---
 apiVersion: v1
 kind: Service
