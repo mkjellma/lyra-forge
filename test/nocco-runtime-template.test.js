@@ -56,10 +56,11 @@ test("runtimekandidaten hämtar immutable digest privat och exponeras bara genom
     policy, releaseId: "release-7", commitSha: SHA_A, artifactDigest: DIGEST, nodeImage: NODE, orasImage: ORAS,
     registryOrigin: "http://forge-registry.forge-artifacts.svc:5000", healthCheck: { path: "/healthz", timeoutMs: 3000 }
   });
+  assert.deepEqual(deployment.spec.template.spec.initContainers[0].command.slice(0, 4), ["oras", "pull", "--plain-http", "--allow-path-traversal"]);
   const service = createNoccoRuntimeService(policy);
   assert.equal(deployment.metadata.namespace, "forge-runtime");
   assert.equal(deployment.spec.strategy.type, "Recreate");
-  assert.match(deployment.spec.template.spec.initContainers[0].command[3], new RegExp(`@${DIGEST}$`));
+  assert.match(deployment.spec.template.spec.initContainers[0].command[4], new RegExp(`@${DIGEST}$`));
   assert.equal(deployment.spec.template.spec.containers[0].command.join(" "), "npm start");
   assert.equal(service.spec.type, "ClusterIP");
   assert.equal(Object.hasOwn(service.spec, "externalIPs"), false);
