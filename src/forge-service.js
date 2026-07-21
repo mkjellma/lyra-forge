@@ -2,6 +2,7 @@ import { conflict, notFound } from "./errors.js";
 import { assertBoolean, assertCommitSha, validateProject } from "./validation.js";
 import { SingleBuildQueue } from "./build-queue.js";
 import { PendingProjectProvisioner, provisionProject } from "./project-provisioner.js";
+import { RejectingBuildVerificationExecutor } from "./adapters.js";
 
 function errorCategory(error, fallback) {
   return typeof error?.code === "string" && /^[A-Z0-9_]{1,64}$/.test(error.code)
@@ -15,12 +16,13 @@ function immutableArtifact(value) {
 }
 
 export class ForgeService {
-  constructor({ registry, releases, audit, gitProvider, buildExecutor, runtimeExecutor, deploymentAdapter = null, projectProvisioner = new PendingProjectProvisioner(), stateStore = null, buildQueue = new SingleBuildQueue() }) {
+  constructor({ registry, releases, audit, gitProvider, buildExecutor, runtimeExecutor, buildVerificationExecutor = new RejectingBuildVerificationExecutor(), deploymentAdapter = null, projectProvisioner = new PendingProjectProvisioner(), stateStore = null, buildQueue = new SingleBuildQueue() }) {
     this.registry = registry;
     this.releases = releases;
     this.audit = audit;
     this.gitProvider = gitProvider;
     this.buildExecutor = buildExecutor;
+    this.buildVerificationExecutor = buildVerificationExecutor;
     this.runtimeExecutor = runtimeExecutor;
     this.deploymentAdapter = deploymentAdapter;
     this.projectProvisioner = projectProvisioner;
@@ -109,10 +111,40 @@ export class ForgeService {
     return this.buildQueue.run(() => this.performDeploy(projectId, commitSha, actorType));
   }
 
+  requestBuildVerification(projectId, commitSha, actorType = "lyra") {
+    return this.buildQueue.run(() => this.performBuildVerification(projectId, commitSha, actorType));
+  }
+
+  async performBuildVerification(projectId, commitSha, actorType) {
+    const project = this.registry.get(projectId);
+    const normalizedSha = assertCommitSha(commitSha);
+    if (this.registry.isPaused(projectId)) {
+      this.audit.append({ action: "build", projectId, actorType, outcome: "rejected", commitSha: normalizedSha, errorCategory: "DEPLOY_PAUSED" });
+      await this.persist();
+      throw conflict("DEPLOY_PAUSED");
+    }
+    try {
+      const result = await this.buildVerificationExecutor.startBuild({ project, commitSha: normalizedSha });
+      if (!result || typeof result !== "object" || Object.keys(result).length !== 3 || typeof result.operationId !== "string" || result.operationId.length === 0 || result.commitSha !== normalizedSha || result.state !== "accepted") {
+        throw conflict("BUILD_EXECUTOR_PROTOCOL_VIOLATION");
+      }
+      const accepted = Object.freeze({ operationId: result.operationId, commitSha: normalizedSha, state: "accepted" });
+      this.audit.append({ action: "build", projectId, actorType, outcome: "accepted", commitSha: normalizedSha });
+      await this.persist();
+      return accepted;
+    } catch (error) {
+      this.audit.append({ action: "build", projectId, actorType, outcome: "rejected", commitSha: normalizedSha, errorCategory: errorCategory(error, "BUILD_EXECUTOR_UNAVAILABLE") });
+      await this.persist();
+      throw error;
+    }
+  }
+
   async performDeploy(projectId, commitSha, actorType) {
     const project = this.registry.get(projectId);
     const normalizedSha = assertCommitSha(commitSha);
-    if (this.deploymentAdapter && project.runtimeBinding === null) {
+    // A pending registration is useful for review, but must never reach the
+    // builder. This remains true even before a runtime adapter is wired.
+    if (project.runtimeBinding === null) {
       this.audit.append({ action: "deploy", projectId, actorType, outcome: "rejected", commitSha: normalizedSha, errorCategory: "PROJECT_NOT_PROVISIONED" });
       await this.persist();
       throw conflict("PROJECT_NOT_PROVISIONED");

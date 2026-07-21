@@ -5,7 +5,9 @@ const PROJECT_ID_PATTERN = /^[a-z][a-z0-9-]{1,62}$/;
 const BRANCH_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._/-]{0,254}$/;
 const KUBERNETES_NAME_PATTERN = /^[a-z0-9]([-a-z0-9]*[a-z0-9])?$/;
 const DEPLOY_POLICIES = new Set(["manual", "on-new-commit"]);
-const BUILD_PROFILES = new Set(["containerfile"]);
+// Build profiles are owner-installed recipes, never repository-supplied commands.
+// The first profile mirrors Adesco's existing, lockfile-pinned Next build.
+const BUILD_PROFILES = new Set(["nextjs-npm"]);
 const RUNTIME_PROFILES = new Set(["private-http"]);
 
 export function assertCommitSha(value) {

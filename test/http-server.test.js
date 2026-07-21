@@ -68,6 +68,7 @@ test("HTTP API exposes a stable, content-free status contract for Lyra", async (
       "projects.status",
       "projects.history",
       "projects.register",
+      "build.request",
       "deploy.request",
       "deploy.restart",
       "deploy.pause",
@@ -109,6 +110,7 @@ test("Lyra-läsidentiteten kan endast läsa det begränsade statuskontraktet", a
     "projects.status",
     "projects.history",
     "projects.register",
+    "build.request",
     "deploy.request",
     "deploy.restart",
     "deploy.pause",
@@ -120,6 +122,7 @@ test("Lyra-läsidentiteten kan endast läsa det begränsade statuskontraktet", a
     { method: "GET", url: "/v1/projects/adesco" },
     { method: "GET", url: "/v1/projects/adesco/releases" },
     { method: "POST", url: "/v1/projects", body: {} },
+    { method: "POST", url: "/v1/projects/adesco/build", body: { commitSha: SHA_A } },
     { method: "POST", url: "/v1/projects/adesco/deploy", body: { commitSha: SHA_A } }
   ]) {
     const rejected = await call(handler, { ...request, headers: readHeaders });
@@ -157,7 +160,7 @@ test("HTTP API lets Lyra register and list a pending private project without exp
     projectId: "pilot-app",
     repository: "https://github.com/example/pilot-app.git",
     allowedBranch: "main",
-    buildProfile: "containerfile",
+    buildProfile: "nextjs-npm",
     runtimeProfile: "private-http",
     deployPolicy: "manual",
     healthCheck: { path: "/healthz", timeoutMs: 3000 },

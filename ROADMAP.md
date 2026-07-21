@@ -2,19 +2,24 @@
 
 ## Nu
 
-1. Godkänn en separat, ägarstyrd k3s-installation på Lenovo.
-2. Skapa en förberedd Forge-namnyta och minsta namespacade rättigheter för den
-   fasta Kubernetes-adaptern. Lyra och Forge får aldrig `kubectl`, shell eller
-   cluster-admin.
-3. Koppla en build-jobbklient till exakt commit-SHA, immutable image-digest,
-   health/rollout och rollback i en enda registrerad tjänst.
+1. Återanvänd den redan ägarstyrda enkel-nods k3s-motorn på Nocco för en
+   build-only executor enligt ADR-0002. Forge installerar eller administrerar
+   inte k3s.
+2. Skapa minsta namespacade Job-rättighet och fast Job-template för den fasta
+   `nextjs-npm`-profilen. Lyra och Forge får aldrig `kubectl`, shell eller
+   cluster-admin. Admission är senare härdning om piloten motiverar den.
+3. Koppla build-jobbklienten till exakt commit-SHA och normaliserad buildstatus
+   för Adesco. Detta är inte en runtime-deploy. Immutable artifact-id kommer
+   först med en separat, godkänd artifactkanal.
 
 ## Första verkliga testet
 
 1. Registrera ett litet testprojekt med repo, branch, health route och
    resursgräns.
-2. Låt Forge poll:a GitHub och deploya en exakt commit-SHA.
-3. Kontrollera health check och rollback till föregående fungerande release.
+2. Låt Forge poll:a GitHub och bygga en exakt commit-SHA efter separat
+   credentialbeslut om repot inte är publikt.
+3. Besluta separat om artifact-publicering, runtime-deploy, health check och
+   rollback till föregående fungerande release.
 
 När detta fungerar bygger vi vidare på Forge-API:t som Lyra använder för
 projekt, status, deploy, paus, restart och rollback. Fler mini-PC:er kan då

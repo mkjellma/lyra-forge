@@ -22,6 +22,7 @@ containrar av sig själv.
 - [Roadmap](ROADMAP.md)
 - [Arbetssätt för agenter](AGENTS.md)
 - [ADR-0001: privat deploy-control-plane](docs/adr/0001-private-deploy-control-plane.md)
+- [ADR-0002: Nocco k3s build-executor](docs/adr/0002-nocco-k3s-build-executor.md)
 - [Förslag 0001: verktygskedja för v0](docs/decisions/0001-v0-toolchain-proposal.md)
 - [Förslag 0002: historiskt Coolify-förslag](docs/decisions/0002-deploy-engine-proposal.md)
 
@@ -44,10 +45,11 @@ Forge återanvänder etablerade bygg- och containerverktyg där de passar.
 Projektet bygger inte ett eget Kubernetes-, container-runtime-, scheduler- eller
 nätverkssystem.
 
-Forge ska vara lättviktigt nog för en mini-PC: få långlivade processer, inga
-alltid körande klusterkomponenter och begränsad samtidighet för builds. När fler
-mini-PC:er tillkommer ska de kunna adderas som isolerade executor-noder bakom
-samma begränsade Forge-API, inte genom att Lyra får bredare värdåtkomst.
+Forge ska vara lättviktigt nog för en mini-PC: få långlivade processer och
+begränsad samtidighet för builds. Den redan ägarstyrda enkel-nods
+k3s-installationen på Nocco återanvänds för kortlivade, isolerade buildjobb;
+Forge installerar eller administrerar inte k3s och Lyra får ingen bredare
+värdåtkomst.
 
 ## Lokal utvecklingsgrund
 
@@ -72,9 +74,15 @@ build i taget för att skydda den första mini-PC:n.
 
 GitHub-adaptern är medvetet avvisande i den körbara processen tills en separat,
 registrerad GitHub-integration har godkänts. En typad Kubernetes-adapter finns
-för k3s, men ingen Kubernetes-klient eller installation är ansluten. Tester
+för k3s, men ingen Kubernetes-klient eller installation är ansluten. Den första
+fast definierade profilen är `nextjs-npm`: Node 24.18.0, `npm ci` och
+`npm run build` i ett kortlivat jobb — inte en projektägd Dockerfile. Tester
 använder explicita fake-adaptrar för att verifiera deploy, health-check-fel,
 paus och rollback utan att kontakta GitHub eller skapa containrar.
+
+Källträdet innehåller också en owner-side factory för Adescos enda tillåtna
+k3s-Jobb och dess minsta RBAC-kontrakt. Den körs inte av Forge-API:t och blir
+inte aktiv förrän den har granskats och installerats på Nocco.
 
 Den adapterklara grunden innehåller också en GitHub REST-pollare som kräver en
 injekterad HTTP-klient och en executor-adapter som kräver en injekterad

@@ -53,7 +53,7 @@ test("persisted registry entries restore without turning them into static config
       projectId: "pilot-app",
       repository: "https://github.com/example/pilot-app.git",
       allowedBranch: "main",
-      buildProfile: "containerfile",
+      buildProfile: "nextjs-npm",
       runtimeProfile: "private-http",
       deployPolicy: "manual",
       healthCheck: { path: "/healthz", timeoutMs: 3000 },

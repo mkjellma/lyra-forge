@@ -1,15 +1,15 @@
 # Förslag 0001: verktygskedja för Forge v0
 
-- Status: **Ersatt av förslag 0002 — ingen implementation**
+- Status: **Ersatt av ADR-0002 — ingen implementation**
 - Datum: 2026-07-19
 - Omfattning: lokalt Forge v0; inga installationer eller externa ändringar
 
 ## Historik
 
 Detta förslag rekommenderade en tunn Forge med en egen Podman/Quadlet-executor.
-Ägaren har förtydligat att Forge inte ska bygga en egen Vercel-lik PaaS. Se
-`docs/decisions/0002-deploy-engine-proposal.md` för det aktuella förslaget att
-använda en etablerad deploymotor.
+Det är ersatt av beslutet att återanvända den redan ägarstyrda k3s-motorn på
+Nocco för ett enda fast buildjobb. Se
+[`ADR-0002`](../adr/0002-nocco-k3s-build-executor.md).
 
 ## Krav som styr urvalet
 

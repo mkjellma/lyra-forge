@@ -1,8 +1,8 @@
 # Adesco — föreslaget Forge-pilotkontrakt
 
-- Status: **Förslag för ägarreview**
-- Källa: lokal, skrivskyddad inspektion 2026-07-19
-- Ingen GitHub- eller driftsättning har gjorts
+- Status: **Godkänt mål: pending/manual-registrering och build-executor**
+- Källa: lokal inspektion uppdaterad 2026-07-21
+- Ingen runtime-deploy eller publik exponering ingår
 
 ## Verifierade förutsättningar
 
@@ -13,6 +13,7 @@
 | Tillåten branch | `main` | lokal Git-status |
 | Ramverk | Next.js 15 + React 19 + TypeScript | `package.json` |
 | Låsfil | `package-lock.json` | arbetsyta |
+| Node-runtime | `24.18.0` | `package.json`, `.node-version` |
 | Typkontroll | `npm run lint` (`tsc --noEmit`) | `package.json` |
 | Produktionsbuild | `npm run build` (`next build`) | `package.json` |
 | Runtime | `npm run start` (`next start`) | `package.json` |
@@ -28,7 +29,7 @@ godkänd deploy-SHA och får inte användas som sådan i Forge.
   "projectId": "adesco-webb",
   "repository": "https://github.com/mkjellma/adesco.git",
   "allowedBranch": "main",
-  "buildProfile": "nextjs-production",
+  "buildProfile": "nextjs-npm",
   "runtimeProfile": "private-http",
   "deployPolicy": "manual",
   "healthCheck": {
@@ -51,35 +52,30 @@ enskilda projekt.
 | Checkout | exakt SHA från registrerad `main` |
 | Install | `npm ci` från versionslåst `package-lock.json` |
 | Gate | `npm run lint` följt av `npm run build` |
-| Artifact | OCI-image märkt med commit-SHA och identifierad av image digest |
-| Start | `npm run start` inom registrerad private-HTTP-runtimeprofil |
+| Resultat | innehållsfri buildstatus för exakt SHA; ingen artifactkanal eller registry i detta steg |
+| Start | ingen runtime start i detta build-only steg |
 | Resurser | en instans, en build i taget; CPU/minne/tidsgräns beslutas före drift |
 
 ## Stoppvillkor före en verklig deploy
 
-1. **Health endpoint saknas.** Projektet har ingen verifierbar `GET /healthz`
-   eller likvärdig intern health route. En sådan måste läggas till och testas i
-   Adesco under ett separat Adesco-mål innan Forge kan publicera tjänsten.
-2. **Node-runtime är inte deklarerad.** `package.json` saknar `engines`,
-   `.nvmrc` och `.node-version`. Ägaren måste godkänna en pinnad Node-version
-   eller Adesco måste deklarera den i repositoryt innan buildprofilen blir
-   reproducerbar.
+1. **`GET /healthz` finns och är testad.** Den behövs först vid en senare
+   runtime-deploy; build-only executor använder den inte.
+2. **Node-runtime är deklarerad.** Adesco binder `24.18.0` i både
+   `package.json` och `.node-version`.
 3. **`NEXT_PUBLIC_SITE_URL` är en driftsinställning.** Koden har en reserv till
    `https://adesco.se`, men slutligt publikt värde, domän och eventuell ingress
    är ägarbeslut. Forge sätter inget värde och skapar ingen publik exponering.
 4. **Kontaktleverans är medvetet avstängd.** Ingen mail-provider eller secret
    ska införas som del av Forge-piloten.
-5. **Ingen verklig executor finns ännu.** Forge har bara det testade,
-   typade kontraktet; en ägarinstallerad rootless Podman/Quadlet-executor krävs
-   först i ett senare driftmål.
+5. **Artifact, runtime och publicering saknas med avsikt.** Första
+   executorsteget verifierar bara den typade `nextjs-npm`-profilen i Nocco
+   k3s. Artifactkanal, registry, app-runtime, domän och ingress kräver ett
+   senare uttryckligt beslut.
 
 ## Ägarbeslut för nästa mål
 
-- Godkänn `manual` eller välj `on-new-commit` som Adescos deploypolicy.
-- Godkänn en pinnad Node-runtime för Adesco.
-- Godkänn ett separat, litet Adesco-mål som adderar och testar `GET /healthz`.
-
-Efter dessa beslut kan nästa Forge-mål implementera en lokal Adesco-fixture
-mot den befintliga adaptergränsen. Det innebär fortfarande ingen Lenovo- eller
-GitHub-ändring.
-
+- `manual` är godkänd för första piloten.
+- En riktig GitHub-pollning behöver ett separat credentialbeslut endast om
+  repot inte är publikt.
+- Första lyckade build och varje senare runtime-/publiceringssteg verifieras
+  mot exakt commit-SHA innan någon deploy kan begäras.

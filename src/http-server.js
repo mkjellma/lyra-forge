@@ -9,6 +9,7 @@ const CAPABILITIES = Object.freeze([
   "projects.status",
   "projects.history",
   "projects.register",
+  "build.request",
   "deploy.request",
   "deploy.restart",
   "deploy.pause",
@@ -115,7 +116,7 @@ export function createForgeRequestHandler({ forge, apiToken, lyraReadToken }) {
         throw new ForgeError("ROUTE_NOT_FOUND", 404);
       }
 
-      const matches = url.pathname.match(/^\/v1\/projects\/([a-z][a-z0-9-]{1,62})(?:\/(releases|deploy|restart|deploy-pause|rollback))?$/);
+      const matches = url.pathname.match(/^\/v1\/projects\/([a-z][a-z0-9-]{1,62})(?:\/(releases|build|deploy|restart|deploy-pause|rollback))?$/);
       if (!matches) {
         throw new ForgeError("ROUTE_NOT_FOUND", 404);
       }
@@ -125,6 +126,9 @@ export function createForgeRequestHandler({ forge, apiToken, lyraReadToken }) {
         result = await forge.getProjectStatus(projectId);
       } else if (request.method === "GET" && operation === "releases") {
         result = await forge.listDeployHistory(projectId);
+      } else if (request.method === "POST" && operation === "build") {
+        const body = await readJson(request);
+        result = await forge.requestBuildVerification(projectId, body.commitSha);
       } else if (request.method === "POST" && operation === "deploy") {
         const body = await readJson(request);
         result = await forge.requestDeploy(projectId, body.commitSha);

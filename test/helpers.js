@@ -10,7 +10,7 @@ export function exampleProject(overrides = {}) {
     projectId: "adesco",
     repository: "https://github.com/example/adesco.git",
     allowedBranch: "main",
-    buildProfile: "containerfile",
+    buildProfile: "nextjs-npm",
     runtimeProfile: "private-http",
     deployPolicy: "manual",
     healthCheck: { path: "/health", timeoutMs: 1000 },
@@ -24,7 +24,7 @@ export function exampleProject(overrides = {}) {
   };
 }
 
-export function makeForge({ build, health, activate, restart, stateStore = null, gitProvider = null, buildExecutor = null, runtimeExecutor = null, deploymentAdapter = null, projectProvisioner = null } = {}) {
+export function makeForge({ build, health, activate, restart, stateStore = null, gitProvider = null, buildExecutor = null, buildVerificationExecutor = null, runtimeExecutor = null, deploymentAdapter = null, projectProvisioner = null } = {}) {
   const now = (() => {
     let counter = 0;
     return () => `2026-07-19T00:00:0${counter++}.000Z`;
@@ -38,6 +38,7 @@ export function makeForge({ build, health, activate, restart, stateStore = null,
     audit,
     gitProvider: gitProvider ?? new FixtureGitProvider({ adesco: [SHA_A, SHA_B] }),
     buildExecutor: buildExecutor ?? new FixtureBuildExecutor({ build, health }),
+    ...(buildVerificationExecutor ? { buildVerificationExecutor } : {}),
     runtimeExecutor: runtimeExecutor ?? new FixtureRuntimeExecutor({ activate, restart }),
     deploymentAdapter,
     ...(projectProvisioner ? { projectProvisioner } : {}),

@@ -93,7 +93,7 @@ test("Lyra can register a project while provisioning remains an internal pending
     projectId: "pilot-app",
     repository: "https://github.com/example/pilot-app.git",
     allowedBranch: "main",
-    buildProfile: "containerfile",
+    buildProfile: "nextjs-npm",
     runtimeProfile: "private-http",
     deployPolicy: "manual",
     healthCheck: { path: "/healthz", timeoutMs: 3000 },
@@ -106,4 +106,60 @@ test("Lyra can register a project while provisioning remains an internal pending
   assert.deepEqual(registry.exportRegisteredProjects().map((candidate) => candidate.projectId), ["pilot-app"]);
   assert.deepEqual(audit.listByProject("pilot-app").map((entry) => [entry.action, entry.outcome]), [["register", "accepted"]]);
   await assert.rejects(() => forge.registerProject({ ...registry.get("pilot-app") }), { code: "PROJECT_ALREADY_REGISTERED" });
+});
+
+test("a pending project is rejected before GitHub or the builder can run", async () => {
+  let gitCalls = 0;
+  let buildCalls = 0;
+  const { forge } = makeForge({
+    gitProvider: {
+      async assertAllowedCommit() {
+        gitCalls += 1;
+      }
+    },
+    buildExecutor: {
+      async build() {
+        buildCalls += 1;
+        return { artifactId: `sha256:${"a".repeat(64)}` };
+      }
+    }
+  });
+  await forge.registerProject({
+    projectId: "pending-app",
+    repository: "https://github.com/example/pending-app.git",
+    allowedBranch: "main",
+    buildProfile: "nextjs-npm",
+    runtimeProfile: "private-http",
+    deployPolicy: "manual",
+    healthCheck: { path: "/healthz", timeoutMs: 3000 },
+    pollIntervalSeconds: 300
+  });
+
+  await assert.rejects(() => forge.requestDeploy("pending-app", SHA_A), { code: "PROJECT_NOT_PROVISIONED" });
+  assert.equal(gitCalls, 0);
+  assert.equal(buildCalls, 0);
+});
+
+test("build-only verification accepts an exact SHA without entering deploy, health or runtime", async () => {
+  let deployBuilds = 0;
+  let runtimeActivations = 0;
+  const { forge, audit } = makeForge({
+    build: async () => {
+      deployBuilds += 1;
+      return { artifactId: `sha256:${"a".repeat(64)}` };
+    },
+    activate: async () => { runtimeActivations += 1; },
+    buildVerificationExecutor: {
+      async startBuild({ project, commitSha }) {
+        assert.equal(project.projectId, "adesco");
+        return { operationId: "forge-build-adesco-aaaaaaaaaaaa", commitSha, state: "accepted" };
+      }
+    }
+  });
+
+  const accepted = await forge.requestBuildVerification("adesco", SHA_A);
+  assert.deepEqual(accepted, { operationId: "forge-build-adesco-aaaaaaaaaaaa", commitSha: SHA_A, state: "accepted" });
+  assert.equal(deployBuilds, 0);
+  assert.equal(runtimeActivations, 0);
+  assert.deepEqual(audit.listByProject("adesco").map((entry) => [entry.action, entry.outcome]), [["build", "accepted"]]);
 });

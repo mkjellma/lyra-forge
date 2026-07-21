@@ -35,17 +35,15 @@ V0 optimeras för en intern mini-PC-labbmiljö, inte för ett kluster:
   ägargodkännande i den valda deploymotorn
 - enkla CPU-, minnes- och tidsgränser när en app faktiskt behöver dem
 
-V0 börjar med en control-plane-instans och en lokal executor. Den utformas dock
-så att en senare, ägargodkänd mini-PC kan läggas till som en separat
-executor-nod. Noden får en stabil identitet och en statisk allowlist över sina
-projektprofiler; Forge placerar bara registrerade releaser på ägargodkända
-noder. Varken Lyra eller Forge får då generell fjärrshell eller container-socket
-till noden.
+V0 har en control-plane-instans och återanvänder den redan ägarstyrda,
+enkel-nods k3s-motorn på Nocco för kortlivade, registrerade jobb. Forge
+installerar, uppgraderar eller administrerar inte k3s. Den första executorn
+har en statisk allowlist över projekt och buildprofiler; varken Lyra eller
+Forge får generell fjärrshell, `kubectl` eller container-socket till noden.
 
-Detta är horisontell utbyggnad, inte klustring i v0. Distribuerad state,
-automatisk nodupptäckt, korsnods-nätverk och delad artifactlagring introduceras
-först när en andra nod faktiskt ska tas i drift och ägaren har godkänt den
-förändringen.
+Distribuerad state, automatisk nodupptäckt, korsnods-nätverk och delad
+artifactlagring introduceras först när ett faktiskt behov och nytt
+ägargodkännande finns.
 
 ## V0-flöde
 
@@ -55,9 +53,10 @@ förändringen.
    på den registrerade branchen.
 3. En deploypolicy eller en API-begäran från Lyra väljer en kandidat bland
    dessa commits. Forge låser valet till en exakt SHA.
-4. Forge hämtar SHA:n och bygger i en kortlivad, isolerad build-container.
-   Den skapar en immutable artifact märkt med projekt-id och commit-SHA,
-   samt sparar release-metadata.
+4. Forge skickar SHA:n till en kortlivad, isolerad build-jobbprofil. Den
+   skapar en immutable artifact märkt med projekt-id och commit-SHA samt
+   sparar release-metadata. Profilen är ägarinstallerad, inte
+   repository-supplied kod eller kommando.
 5. Forge startar kandidaten isolerat och kör dess fördefinierade interna health
    check.
 6. Vid godkänd check blir kandidaten aktiv. Föregående friska release behålls.
@@ -70,8 +69,8 @@ repositorykod.
 
 ## Build-isolering
 
-Forge får skapa build-containrar för registrerade deployer. En build-container
-är kortlivad, kopplad till ett enda projekt och commit-SHA och används bara för
+Forge får skapa buildjobb för registrerade deployer. Ett buildjobb
+är kortlivat, kopplat till ett enda projekt och commit-SHA och används bara för
 det projektets deklarerade buildprofil. Den får inte bli en agentens generella
 shell- eller Docker-socket-yta. Forge bevarar artifact och content-free
 metadata, men inte den körande build-containern efter avslutad build.

@@ -37,6 +37,12 @@ export class RejectingBuildExecutor {
   }
 }
 
+export class RejectingBuildVerificationExecutor {
+  async startBuild() {
+    throw conflict("BUILD_EXECUTOR_UNAVAILABLE");
+  }
+}
+
 export class FixtureRuntimeExecutor {
   constructor({ activate = async () => undefined, restart = async () => undefined } = {}) {
     this.activate = activate;
