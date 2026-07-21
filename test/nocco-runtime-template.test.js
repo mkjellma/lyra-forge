@@ -45,8 +45,8 @@ test("artifactjobbet har fast checkout, build och intern ORAS-publicering", () =
   assert.equal(job.metadata.namespace, "forge-build");
   assert.equal(job.metadata.name, "forge-artifact-adesco-webb-release-7");
   assert.equal(job.spec.template.spec.initContainers[1].name, "build");
-  assert.deepEqual(job.spec.template.spec.containers[0].command.slice(0, 3), ["oras", "push", "--plain-http"]);
-  assert.match(job.spec.template.spec.containers[0].command[3], new RegExp(`:${SHA_A}$`));
+  assert.deepEqual(job.spec.template.spec.containers[0].command.slice(0, 4), ["oras", "push", "--plain-http", "--disable-path-validation"]);
+  assert.match(job.spec.template.spec.containers[0].command[4], new RegExp(`:${SHA_A}$`));
   assert.equal(job.spec.template.spec.initContainers[1].volumeMounts.some((mount) => mount.name === "git-key"), false);
 });
 
