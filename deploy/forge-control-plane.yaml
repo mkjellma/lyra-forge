@@ -49,7 +49,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: forge
-          image: docker.io/library/lyra-forge:0cf0544
+          image: docker.io/library/lyra-forge:a88fa82
           imagePullPolicy: Never
           ports:
             - containerPort: 3000
@@ -105,7 +105,7 @@ spec:
               mountPath: /etc/forge-runtime-projects
               readOnly: true
         - name: build-executor
-          image: docker.io/library/lyra-forge:0cf0544
+          image: docker.io/library/lyra-forge:a88fa82
           imagePullPolicy: Never
           command: ["node", "src/build-executor-main.js"]
           env:
@@ -141,7 +141,7 @@ spec:
               mountPath: /var/run/secrets/kubernetes.io/serviceaccount
               readOnly: true
         - name: runtime-executor
-          image: docker.io/library/lyra-forge:0cf0544
+          image: docker.io/library/lyra-forge:a88fa82
           imagePullPolicy: Never
           command: ["node", "src/runtime-executor-main.js"]
           env:
