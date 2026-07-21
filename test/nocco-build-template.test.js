@@ -29,6 +29,11 @@ test("Nocco-buildern kan bara skapa Adescos fasta, SHA-pinnade nextjs-npm-jobb",
     { name: "runtime-home", emptyDir: { sizeLimit: "256Mi" } }
   ]);
   assert.match(job.spec.template.spec.initContainers[0].args[0], /refs\/forge\/allowed/);
+  assert.deepEqual(job.spec.template.spec.initContainers[0].env.slice(-3), [
+    { name: "GIT_CONFIG_COUNT", value: "1" },
+    { name: "GIT_CONFIG_KEY_0", value: "safe.directory" },
+    { name: "GIT_CONFIG_VALUE_0", value: "/workspace" }
+  ]);
   assert.equal(job.spec.template.spec.securityContext.fsGroup, 10001);
   assert.equal(Object.isFrozen(job), true);
   assert.deepEqual(noccoBuildPolicy(), {

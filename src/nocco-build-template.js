@@ -72,7 +72,10 @@ export function createAdescoNoccoBuildJob({ commitSha, checkoutImage, builderIma
     { name: "FORGE_REPOSITORY", value: ADESCO_POLICY.repository },
     { name: "FORGE_BRANCH", value: ADESCO_POLICY.branch },
     { name: "FORGE_COMMIT_SHA", value: normalizedCommitSha },
-    { name: "GIT_TERMINAL_PROMPT", value: "0" }
+    { name: "GIT_TERMINAL_PROMPT", value: "0" },
+    { name: "GIT_CONFIG_COUNT", value: "1" },
+    { name: "GIT_CONFIG_KEY_0", value: "safe.directory" },
+    { name: "GIT_CONFIG_VALUE_0", value: "/workspace" }
   ];
 
   return Object.freeze({
