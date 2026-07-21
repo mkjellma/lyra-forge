@@ -53,7 +53,21 @@ spec:
         object.spec.template.spec.containers[0].imagePullPolicy == 'Never' &&
         object.spec.template.spec.containers[0].command == ['/bin/sh', '-ec'] &&
         object.spec.template.spec.containers[0].args == ['set -eu\nnpm ci\nnpm run build'] &&
-        object.spec.template.spec.containers[0].workingDir == '/workspace')
+        object.spec.template.spec.containers[0].workingDir == '/workspace' &&
+        !has(object.spec.template.spec.initContainers[0].lifecycle) &&
+        !has(object.spec.template.spec.initContainers[0].livenessProbe) &&
+        !has(object.spec.template.spec.initContainers[0].readinessProbe) &&
+        !has(object.spec.template.spec.initContainers[0].startupProbe) &&
+        !has(object.spec.template.spec.initContainers[0].terminationMessagePath) &&
+        !has(object.spec.template.spec.initContainers[0].terminationMessagePolicy) &&
+        !has(object.spec.template.spec.initContainers[0].volumeDevices) &&
+        !has(object.spec.template.spec.containers[0].lifecycle) &&
+        !has(object.spec.template.spec.containers[0].livenessProbe) &&
+        !has(object.spec.template.spec.containers[0].readinessProbe) &&
+        !has(object.spec.template.spec.containers[0].startupProbe) &&
+        !has(object.spec.template.spec.containers[0].terminationMessagePath) &&
+        !has(object.spec.template.spec.containers[0].terminationMessagePolicy) &&
+        !has(object.spec.template.spec.containers[0].volumeDevices))
       message: Forge executor may use only the fixed checkout and builder images and commands.
     - expression: >-
         request.userInfo.username != 'system:serviceaccount:forge-system:forge-build-executor' ||
