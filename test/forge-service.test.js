@@ -2,6 +2,67 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { SHA_A, SHA_B, makeForge } from "./helpers.js";
 
+test("read overview is a bounded pure snapshot without deploy-side effects", async () => {
+  const { forge, registry, releases, audit } = makeForge();
+  const active = releases.create({ projectId: "adesco", commitSha: SHA_A });
+  releases.record(active.releaseId, "active");
+  releases.setActive("adesco", active.releaseId);
+  const failed = releases.create({ projectId: "adesco", commitSha: SHA_B });
+  releases.record(failed.releaseId, "failed");
+  registry.setPaused("adesco", true);
+
+  let persisted = 0;
+  let audited = 0;
+  let runtimeRead = 0;
+  forge.persist = async () => { persisted += 1; };
+  audit.append = () => { audited += 1; };
+  forge.runtimeExecutor.getRuntimeStatus = async () => { runtimeRead += 1; };
+
+  assert.deepEqual(forge.readOverview(), {
+    system: [
+      { id: "control-plane", state: "available" },
+      { id: "build-executor", state: "disabled" },
+      { id: "runtime-executor", state: "disabled" }
+    ],
+    applications: {
+      total: 1,
+      truncated: false,
+      items: [{
+        id: "adesco",
+        provisioning: "ready",
+        deployPaused: true,
+        releases: { active: "active", candidate: "failed" }
+      }]
+    }
+  });
+  assert.equal(persisted, 0);
+  assert.equal(audited, 0);
+  assert.equal(runtimeRead, 0);
+});
+
+test("read overview keeps a deterministic first page of at most 64 applications", () => {
+  const { forge, registry } = makeForge();
+  const source = registry.get("adesco");
+  for (let number = 0; number < 64; number += 1) {
+    registry.register({
+      ...source,
+      projectId: `app-${String(number).padStart(2, "0")}`,
+      repository: `https://github.com/example/app-${number}.git`,
+      runtimeBinding: {
+        ...source.runtimeBinding,
+        workloadName: `app-${String(number).padStart(2, "0")}`
+      }
+    });
+  }
+
+  const overview = forge.readOverview();
+  assert.equal(overview.applications.total, 65);
+  assert.equal(overview.applications.truncated, true);
+  assert.equal(overview.applications.items.length, 64);
+  assert.deepEqual(overview.applications.items.map((item) => item.id).slice(0, 2), ["adesco", "app-00"]);
+  assert.equal(overview.applications.items.at(-1)?.id, "app-62");
+});
+
 test("deploy promotes a healthy exact commit and retains the prior release", async () => {
   const { forge, audit } = makeForge();
   const first = await forge.requestDeploy("adesco", SHA_A);

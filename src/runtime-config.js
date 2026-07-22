@@ -8,6 +8,14 @@ function optionalString(value, code) {
   return requiredString(value, code);
 }
 
+function optionalLyraReadToken(value) {
+  if (value === undefined) return undefined;
+  if (typeof value !== "string" || !/^[a-f0-9]{64}$/i.test(value)) {
+    throw new Error("FORGE_LYRA_READ_TOKEN_INVALID");
+  }
+  return value;
+}
+
 function port(value) {
   const parsed = Number(value ?? 3000);
   if (!Number.isInteger(parsed) || parsed < 1 || parsed > 65535) throw new Error("FORGE_PORT_INVALID");
@@ -19,7 +27,7 @@ export function loadRuntimeConfig(environment = process.env) {
   if (bindHost !== "127.0.0.1" && bindHost !== "0.0.0.0") throw new Error("FORGE_BIND_HOST_INVALID");
 
   const apiToken = requiredString(environment.FORGE_API_TOKEN, "FORGE_API_TOKEN_REQUIRED");
-  const lyraReadToken = optionalString(environment.FORGE_LYRA_READ_TOKEN, "FORGE_LYRA_READ_TOKEN_INVALID");
+  const lyraReadToken = optionalLyraReadToken(environment.FORGE_LYRA_READ_TOKEN);
   const buildExecutorSocket = optionalString(environment.FORGE_BUILD_EXECUTOR_SOCKET, "FORGE_BUILD_EXECUTOR_SOCKET_INVALID");
   const runtimeExecutorSocket = optionalString(environment.FORGE_RUNTIME_EXECUTOR_SOCKET, "FORGE_RUNTIME_EXECUTOR_SOCKET_INVALID");
   const runtimeProjectsPath = optionalString(environment.FORGE_RUNTIME_PROJECTS_PATH, "FORGE_RUNTIME_PROJECTS_PATH_INVALID");

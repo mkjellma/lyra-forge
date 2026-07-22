@@ -43,7 +43,11 @@ const forge = new ForgeService({
   runtimeExecutor: runtimeAdapter ?? new RejectingRuntimeExecutor(),
   deploymentAdapter: runtimeAdapter,
   projectProvisioner: runtimeProvisioner,
-  stateStore
+  stateStore,
+  overviewComponents: {
+    buildExecutor: runtime.buildExecutorSocket ? "configured" : "disabled",
+    runtimeExecutor: runtime.runtimeExecutorSocket ? "configured" : "disabled"
+  }
 });
 
 const server = createForgeHttpServer({ forge, apiToken: runtime.apiToken, lyraReadToken: runtime.lyraReadToken });

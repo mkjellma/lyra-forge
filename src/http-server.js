@@ -71,11 +71,26 @@ function lyraReadStatus(forge) {
   });
 }
 
+function lyraReadOverview(forge) {
+  return Object.freeze({
+    schema: "forge.read-overview.v1",
+    service: "lyra-forge",
+    capabilities: Object.freeze(["forge.read_overview"]),
+    ...forge.readOverview()
+  });
+}
+
+function lyraReadAuthorized(authorization, token) {
+  if (!token || typeof authorization !== "string") return false;
+  const match = /^Bearer ([a-f0-9]{64})$/i.exec(authorization);
+  return match !== null && tokensMatch(match[1], token);
+}
+
 export function createForgeRequestHandler({ forge, apiToken, lyraReadToken }) {
   if (!apiToken || typeof apiToken !== "string") {
     throw new Error("FORGE_API_TOKEN_REQUIRED");
   }
-  if (lyraReadToken !== undefined && (typeof lyraReadToken !== "string" || lyraReadToken.length === 0)) {
+  if (lyraReadToken !== undefined && (typeof lyraReadToken !== "string" || !/^[a-f0-9]{64}$/i.test(lyraReadToken))) {
     throw new Error("FORGE_LYRA_READ_TOKEN_INVALID");
   }
   if (lyraReadToken === apiToken) {
@@ -92,12 +107,23 @@ export function createForgeRequestHandler({ forge, apiToken, lyraReadToken }) {
       const authorization = request.headers.authorization;
       const bearerToken = authorization?.startsWith("Bearer ") ? authorization.slice(7) : "";
 
+      if (url.search && (url.pathname === "/v1/status" || url.pathname === "/v1/overview")) {
+        throw new ForgeError("ROUTE_NOT_FOUND", 404);
+      }
+
       if (request.method === "GET" && url.pathname === "/v1/status") {
         if (tokensMatch(bearerToken, apiToken)) {
           return send(response, 200, forgeStatus(forge));
         }
-        if (lyraReadToken && tokensMatch(bearerToken, lyraReadToken)) {
+        if (lyraReadAuthorized(authorization, lyraReadToken)) {
           return send(response, 200, lyraReadStatus(forge));
+        }
+        throw unauthorized();
+      }
+
+      if (request.method === "GET" && url.pathname === "/v1/overview") {
+        if (lyraReadAuthorized(authorization, lyraReadToken)) {
+          return send(response, 200, lyraReadOverview(forge));
         }
         throw unauthorized();
       }

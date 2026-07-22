@@ -4,10 +4,10 @@
 
 - Forge kör privat på Lenovo (`nocco`) i k3s.
 - Privat LAN-adress: `http://192.168.1.42:30080`.
-- Körande Forge-release: Git-commit `769f894`.
-- Projektregistret är tomt. GitHub-pollning, builds och appdeployer är inte
-  anslutna.
-- Forge har ingen Kubernetes-RBAC och kan inte skapa eller ändra workloads.
+- Körande Forge-release och runtime förändras genom Forge-releaser; kontrollera
+  aktuell Nocco-status före driftarbete.
+- Den privata build- och runtimevägen kan ha registrerade projekt och aktiva
+  releaser. Denna handoff är ett kontraktsdokument, inte en runtimeinventering.
 
 ## Kontrakt för första Lyra-sprinten
 
@@ -18,11 +18,13 @@ serverkonfigurerade `FORGE_LYRA_READ_TOKEN` medger endast statusläsning; den
 | Endpoint | Syfte |
 | --- | --- |
 | `GET /v1/status` | Begränsat läskontrakt: schema, tjänstenamn, `forge.read_status` och projekttotal. |
+| `GET /v1/overview` | Ren, avkortad snapshot av fasta Forge-komponenter och abstrakta applikations-/release-lägen. |
 
-`GET /v1/status` accepterar Lyra-lästoken eller Forge admin-token. Alla andra
-`/v1/*`-endpoints kräver admin-token; Lyra-lästoken accepterar varken andra
-`GET`-rutter eller `POST`. `/healthz` är endast en intern health-check och ska
-inte vara Lyra-funktion.
+`GET /v1/status` accepterar Lyra-lästoken eller Forge admin-token.
+`GET /v1/overview` accepterar enbart Lyra-lästoken. Alla andra `/v1/*`-
+endpoints kräver admin-token; Lyra-lästoken accepterar varken andra `GET`-
+rutter eller `POST`. Båda läsrutterna avvisar query strings. `/healthz` är
+endast en intern health-check och ska inte vara Lyra-funktion.
 
 ## Hemligheter och nätverk
 
@@ -40,4 +42,6 @@ inte vara Lyra-funktion.
 Ändra inte Lyra Cores Caddy, certifikat, nätverk eller befintliga secrets.
 Importera inte Forge-kod i Lyra Cores runtime. Använd en liten HTTP-klient med
 typade, läsande metoder och normaliserade fel. Forge-registrering, deploy,
-restart, paus och rollback är senare, separata beslut.
+restart, paus och rollback är senare, separata beslut. Översikten visar inte
+råa k3s-/containeruppgifter och får inte använda runtimestatus som kan
+reconciliera resurser.

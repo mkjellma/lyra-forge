@@ -25,8 +25,9 @@
 3. Aktivera den godkända artifact- och runtimevägen på Nocco med snapshot,
    pinnade registry/ORAS-image-digests och en explicit ägarrelease.
 
-När detta fungerar bygger vi vidare på Forge-API:t som Lyra använder för
-projekt, status, deploy, paus, restart och rollback. Fler mini-PC:er kan då
+När detta fungerar bygger vi vidare på Forge-API:t som Lyra använder för sin
+generella läsöversikt. Deploy, paus, restart och rollback i Lyra är senare
+separata beslut. Fler mini-PC:er kan då
 anslutas som k3s-noder först när faktisk belastning motiverar det.
 
 Inga punkter ovan är tillstånd att ändra Lenovo, GitHub, secrets, nätverk eller

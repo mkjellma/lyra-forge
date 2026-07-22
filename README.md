@@ -24,6 +24,7 @@ containrar av sig själv.
 - [ADR-0001: privat deploy-control-plane](docs/adr/0001-private-deploy-control-plane.md)
 - [ADR-0002: Nocco k3s build-executor](docs/adr/0002-nocco-k3s-build-executor.md)
 - [ADR-0003: privat OCI-artifactkanal](docs/adr/0003-private-oci-runtime-artifacts.md)
+- [ADR-0004: begränsad Forge-översikt för Lyra](docs/adr/0004-lyra-read-overview.md)
 - [Förslag 0001: verktygskedja för v0](docs/decisions/0001-v0-toolchain-proposal.md)
 - [Förslag 0002: historiskt Coolify-förslag](docs/decisions/0002-deploy-engine-proposal.md)
 
@@ -64,7 +65,11 @@ provisioneringsgränsen är avsedd för den senare, godkända k3s-motorn.
 När den valfria serverkonfigurerade `FORGE_LYRA_READ_TOKEN` används får den
 endast läsa denna route och får ett begränsat kontrakt med schema, tjänstenamn,
 projekttotal och `forge.read_status`. Den ger varken åtkomst till övriga
-`GET`-rutter eller någon `POST`-route. Den befintliga `FORGE_API_TOKEN` är
+`GET`-rutter eller någon `POST`-route. `GET /v1/overview` är en separat,
+versionsbunden läsbild för Lyra med fasta Forge-komponenter och som mest 64
+abstrakta applikationsstatusar. Den byggs enbart ur lokalt register och
+release-state, aldrig genom runtime- eller Kubernetes-statusläsning. Den
+befintliga `FORGE_API_TOKEN` är
 fortsatt adminidentiteten och behåller sitt detaljerade statuskontrakt. Inga
 tokenvärden tas från query/body eller loggas.
 

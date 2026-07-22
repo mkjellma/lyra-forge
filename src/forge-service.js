@@ -16,7 +16,7 @@ function immutableArtifact(value) {
 }
 
 export class ForgeService {
-  constructor({ registry, releases, audit, gitProvider, buildExecutor, runtimeExecutor, buildVerificationExecutor = new RejectingBuildVerificationExecutor(), deploymentAdapter = null, projectProvisioner = new PendingProjectProvisioner(), stateStore = null, buildQueue = new SingleBuildQueue() }) {
+  constructor({ registry, releases, audit, gitProvider, buildExecutor, runtimeExecutor, buildVerificationExecutor = new RejectingBuildVerificationExecutor(), deploymentAdapter = null, projectProvisioner = new PendingProjectProvisioner(), stateStore = null, buildQueue = new SingleBuildQueue(), overviewComponents = { buildExecutor: "disabled", runtimeExecutor: "disabled" } }) {
     this.registry = registry;
     this.releases = releases;
     this.audit = audit;
@@ -28,6 +28,10 @@ export class ForgeService {
     this.projectProvisioner = projectProvisioner;
     this.stateStore = stateStore;
     this.buildQueue = buildQueue;
+    this.overviewComponents = Object.freeze({
+      buildExecutor: overviewComponents.buildExecutor === "configured" ? "configured" : "disabled",
+      runtimeExecutor: overviewComponents.runtimeExecutor === "configured" ? "configured" : "disabled"
+    });
   }
 
   async persist() {
@@ -78,6 +82,39 @@ export class ForgeService {
       pollIntervalSeconds: project.pollIntervalSeconds,
       provisioningState: project.runtimeBinding === null ? "pending" : "ready"
     }));
+  }
+
+  readOverview() {
+    const projects = this.registry.list()
+      .map((project) => {
+        const active = this.releases.getActive(project.projectId);
+        const candidate = this.releases.getLatestCandidate(project.projectId);
+        return Object.freeze({
+          id: project.projectId,
+          provisioning: project.runtimeBinding === null ? "pending" : "ready",
+          deployPaused: this.registry.isPaused(project.projectId),
+          releases: Object.freeze({
+            active: active === null ? "none" : "active",
+            candidate: candidate === null || !["queued", "checking", "ready", "failed"].includes(candidate.state)
+              ? "none"
+              : candidate.state
+          })
+        });
+      })
+      .sort((left, right) => left.id.localeCompare(right.id));
+    const items = projects.slice(0, 64);
+    return Object.freeze({
+      system: Object.freeze([
+        Object.freeze({ id: "control-plane", state: "available" }),
+        Object.freeze({ id: "build-executor", state: this.overviewComponents.buildExecutor }),
+        Object.freeze({ id: "runtime-executor", state: this.overviewComponents.runtimeExecutor })
+      ]),
+      applications: Object.freeze({
+        total: projects.length,
+        truncated: projects.length > items.length,
+        items: Object.freeze(items)
+      })
+    });
   }
 
   async registerProject(sourceProject, actorType = "lyra") {

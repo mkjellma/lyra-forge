@@ -132,6 +132,14 @@ Varje muterande operation validerar projektets register, tillåtna tillstånd oc
 identitet. Ytan ger inte filsystem, shell, Docker-socket, godtyckliga images
 eller nya repositories.
 
+Den separata, icke-administrativa Lyra-läsidentiteten har även en fast
+`GET /v1/overview`-route. Den är en ren lokal snapshot av tre kodägda
+Forge-komponenter och en avkortad appinventering med logiska release-lägen.
+Den använder inte deploymotorns statusmetoder och kan således inte skapa,
+patcha eller reconciliera runtime-resurser som bieffekt av en läsning. Rå
+Kubernetes-/hosttelemetri, deploydetaljer och alla muterande routes ligger
+utanför denna identitet.
+
 ## Adaptergränser
 
 GitHub-pollaren får endast läsa HEAD-commit för ett registrerat repo och dess

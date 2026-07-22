@@ -2,6 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { loadRuntimeConfig } from "../src/runtime-config.js";
 
+const LYRA_READ_TOKEN = "a".repeat(64);
+
 test("runtimekonfigurationen är loopback som standard utan driftmotorspecifika hemligheter", () => {
   const config = loadRuntimeConfig({ FORGE_API_TOKEN: "test-forge-token" });
   assert.equal(config.bindHost, "127.0.0.1");
@@ -13,7 +15,7 @@ test("runtimekonfigurationen är loopback som standard utan driftmotorspecifika 
 test("runtimekonfigurationen godtar privat containerbindning", () => {
   const config = loadRuntimeConfig({
     FORGE_API_TOKEN: "test-forge-token",
-    FORGE_LYRA_READ_TOKEN: "test-lyra-read-token",
+    FORGE_LYRA_READ_TOKEN: LYRA_READ_TOKEN,
     FORGE_BIND_HOST: "0.0.0.0",
     FORGE_PORT: "3000",
     FORGE_STATE_PATH: "/var/lib/forge/state.json"
@@ -21,7 +23,7 @@ test("runtimekonfigurationen godtar privat containerbindning", () => {
   assert.deepEqual(config, {
     apiToken: "test-forge-token",
     bindHost: "0.0.0.0",
-    lyraReadToken: "test-lyra-read-token",
+    lyraReadToken: LYRA_READ_TOKEN,
     port: 3000,
     statePath: "/var/lib/forge/state.json"
   });
@@ -34,7 +36,11 @@ test("runtimekonfigurationen håller den valfria Lyra-läsidentiteten separat fr
     { message: "FORGE_LYRA_READ_TOKEN_INVALID" }
   );
   assert.throws(
-    () => loadRuntimeConfig({ FORGE_API_TOKEN: "admin-token", FORGE_LYRA_READ_TOKEN: "admin-token" }),
+    () => loadRuntimeConfig({ FORGE_API_TOKEN: "admin-token", FORGE_LYRA_READ_TOKEN: "too-short" }),
+    { message: "FORGE_LYRA_READ_TOKEN_INVALID" }
+  );
+  assert.throws(
+    () => loadRuntimeConfig({ FORGE_API_TOKEN: LYRA_READ_TOKEN, FORGE_LYRA_READ_TOKEN: LYRA_READ_TOKEN }),
     { message: "FORGE_LYRA_READ_TOKEN_MUST_DIFFER" }
   );
 });

@@ -158,6 +158,13 @@ export class ReleaseStore {
     return this.listByProject(projectId).find((release) => release.state === "checking") ?? null;
   }
 
+  getLatestCandidate(projectId) {
+    const activeReleaseId = this.activeReleaseIds.get(projectId);
+    return this.listByProject(projectId)
+      .filter((release) => release.releaseId !== activeReleaseId && release.state !== "previous")
+      .sort((left, right) => Number(right.releaseId.slice(8)) - Number(left.releaseId.slice(8)))[0] ?? null;
+  }
+
   setActive(projectId, releaseId) {
     this.getRecord(releaseId);
     this.activeReleaseIds.set(projectId, releaseId);

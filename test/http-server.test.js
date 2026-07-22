@@ -4,6 +4,8 @@ import { Readable } from "node:stream";
 import { createForgeRequestHandler } from "../src/http-server.js";
 import { SHA_A, makeForge } from "./helpers.js";
 
+const LYRA_READ_TOKEN = "b".repeat(64);
+
 async function call(handler, { method, url, headers = {}, body }) {
   const request = Object.assign(
     Readable.from(body === undefined ? [] : [Buffer.from(JSON.stringify(body))]),
@@ -84,9 +86,9 @@ test("Lyra-läsidentiteten kan endast läsa det begränsade statuskontraktet", a
   const handler = createForgeRequestHandler({
     forge,
     apiToken: "admin-token",
-    lyraReadToken: "lyra-read-token"
+    lyraReadToken: LYRA_READ_TOKEN
   });
-  const readHeaders = { authorization: "Bearer lyra-read-token" };
+  const readHeaders = { authorization: `Bearer ${LYRA_READ_TOKEN}` };
 
   const status = await call(handler, {
     method: "GET",
@@ -99,6 +101,33 @@ test("Lyra-läsidentiteten kan endast läsa det begränsade statuskontraktet", a
     service: "lyra-forge",
     capabilities: ["forge.read_status"],
     projects: { total: 1 }
+  });
+
+  const overview = await call(handler, {
+    method: "GET",
+    url: "/v1/overview",
+    headers: readHeaders
+  });
+  assert.equal(overview.status, 200);
+  assert.deepEqual(overview.body, {
+    schema: "forge.read-overview.v1",
+    service: "lyra-forge",
+    capabilities: ["forge.read_overview"],
+    system: [
+      { id: "control-plane", state: "available" },
+      { id: "build-executor", state: "disabled" },
+      { id: "runtime-executor", state: "disabled" }
+    ],
+    applications: {
+      total: 1,
+      truncated: false,
+      items: [{
+        id: "adesco",
+        provisioning: "ready",
+        deployPaused: false,
+        releases: { active: "none", candidate: "none" }
+      }]
+    }
   });
 
   const adminStatus = await call(handler, {
@@ -134,15 +163,24 @@ test("Lyra-läsidentiteten kan endast läsa det begränsade statuskontraktet", a
 
   const queryToken = await call(handler, {
     method: "GET",
-    url: "/v1/status?token=lyra-read-token"
+    url: `/v1/status?token=${LYRA_READ_TOKEN}`,
+    headers: readHeaders
   });
-  assert.equal(queryToken.status, 401);
+  assert.equal(queryToken.status, 404);
+
+  const queryOverview = await call(handler, {
+    method: "GET",
+    url: "/v1/overview?ignored=true",
+    headers: readHeaders
+  });
+  assert.equal(queryOverview.status, 404);
 });
 
 test("en felkonfigurerad Lyra-läsidentitet avvisas av HTTP-servern", () => {
   const { forge } = makeForge();
+  const sameToken = "c".repeat(64);
   assert.throws(
-    () => createForgeRequestHandler({ forge, apiToken: "same-token", lyraReadToken: "same-token" }),
+    () => createForgeRequestHandler({ forge, apiToken: sameToken, lyraReadToken: sameToken }),
     { message: "FORGE_LYRA_READ_TOKEN_MUST_DIFFER" }
   );
 });
